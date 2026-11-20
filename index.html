@@ -8,6 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
     
     <style>
         :root {
@@ -349,32 +350,28 @@
     <div id="loginScreen">
         <div class="login-card">
             <div id="formLogin">
-                <h2>Iniciar Sesión</h2>
-                <input type="text" id="usuarioInput" placeholder="Nombre de Usuario">
-                <input type="password" id="claveInput" placeholder="Contraseña (Código SAP)">
-                <button type="button" onclick="ingresar()">INGRESAR</button>
-                <p id="mensajeLogin" style="color: var(--danger);"></p>
-                <div class="toggle-link" onclick="mostrarRegistro(true)">¿No tienes cuenta? Regístrate aquí</div>
-            </div>
+    <h2>Iniciar sesión</h2>
 
-            <div id="formRegistro" style="display: none;">
-                <h2>Solicitar Registro</h2>
-                <input type="text" id="regNombre" placeholder="Nombre">
-                <input type="text" id="regApellido" placeholder="Apellido">
-                <input type="text" id="regSap" placeholder="Código SAP">
-                <input type="text" id="regTelefono" placeholder="Número de Teléfono">
-                <button type="button" onclick="enviarRegistro()">ENVIAR SOLICITUD</button>
-                <p id="mensajeRegistro" style="color: var(--success);"></p>
-                <div class="toggle-link" onclick="mostrarRegistro(false)">← Volver al Login</div>
-            </div>
-        </div>
-    </div>
+    <p style="font-size:14px; color:var(--secondary);">
+        Accede con tu cuenta corporativa de Laboratorios LETI.
+    </p>
+
+    <button type="button" onclick="iniciarSesionMicrosoft()">
+        INICIAR SESIÓN CON MICROSOFT
+    </button>
+
+    <p id="mensajeLogin" style="color:var(--danger);"></p>
+</div>
+
 
     <div id="mainApp">
         <header>
             <h1>MONITOREO DE ESTABILIDAD</h1>
             <p>Control de Temperatura y Humedad Relativa - Grupo LETI</p>
             <div class="header-buttons">
+                <span id="usuarioMicrosoft"
+      style="display:flex; align-items:center; font-size:13px;">
+</span>
                 <button type="button" class="top-btn" onclick="toggleDarkMode()">🌓 Modo Oscuro</button>
                 <button type="button" class="top-btn" onclick="cerrarSesion()">Cerrar sesión</button>
             </div>
@@ -505,9 +502,42 @@
     </div>
 
     <script>
-        const URL_API = "https://script.google.com/macros/s/AKfycbw2uSbMzb9fdznZWFX--FPZWKq08SyQETAWH2fdKP_fU5kYJrLVH95zStmDsWssGssR/exec";
+        
         const SUPABASE_URL = "https://vzmnlkqdwuaiauznlijz.supabase.co";
         const SUPABASE_KEY = "sb_publishable_JrzuRZu5E5J7aopUX8_5ow_lupeOMX9";
+        const CLIENT_ID = "6e29c539-1074-4a31-a206-7fa7d7fdb9bf";
+        const TENANT_ID = "2f5a4c2b-1ce8-4b06-8a5c-7a77d7b80c9c";
+        const REDIRECT_URI = "https://jarodriguezf2002-collab.github.io/index.html";
+        const msalConfig = {
+    auth: {
+        clientId: CLIENT_ID,
+
+        authority:
+            "https://login.microsoftonline.com/" + TENANT_ID,
+
+        redirectUri: REDIRECT_URI,
+
+        postLogoutRedirectUri: REDIRECT_URI,
+
+        navigateToLoginRequestUrl: true
+    },
+
+    cache: {
+        cacheLocation: "localStorage",
+        storeAuthStateInCookie: false
+    }
+};
+
+const loginRequest = {
+    scopes: [
+        "openid",
+        "profile",
+        "email"
+    ]
+};
+
+const msalInstance =
+    new msal.PublicClientApplication(msalConfig);
 
         let datosGlobales = { historial: [], alarmas: [] };
         let charts = { tempNat: null, tempAce: null, humNat: null, humAce: null };
@@ -559,25 +589,6 @@
             return texto;
         }
 
-        function mostrarRegistro(ver) {
-            document.getElementById("formLogin").style.display = ver ? "none" : "block";
-            document.getElementById("formRegistro").style.display = ver ? "block" : "none";
-            document.getElementById("mensajeLogin").innerText = "";
-            document.getElementById("mensajeRegistro").innerText = "";
-        }
-
-        function enviarRegistro() {
-            const nombre = document.getElementById("regNombre").value.trim();
-            const apellido = document.getElementById("regApellido").value.trim();
-            const sap = document.getElementById("regSap").value.trim();
-            const telefono = document.getElementById("regTelefono").value.trim();
-
-            if (!nombre || !apellido || !sap || !telefono) {
-                document.getElementById("mensajeRegistro").style.color = "var(--danger)";
-                document.getElementById("mensajeRegistro").innerText = "Por favor completa todos los campos.";
-                return;
-            }
-
             document.getElementById("mensajeRegistro").style.color = "var(--success)";
             document.getElementById("mensajeRegistro").innerText = "Enviando solicitud al jefe...";
 
@@ -602,53 +613,110 @@
                 });
         }
 
-        function ingresar() {
-            const usuario = document.getElementById("usuarioInput").value.trim();
-            const clave = document.getElementById("claveInput").value.trim();
+async function inicializarSSO() {
+    try {
+        await msalInstance.initialize();
 
-            if (!usuario || !clave) {
-                document.getElementById("mensajeLogin").innerText = "Ingresa usuario y contraseña.";
-                return;
-            }
+        const respuesta =
+            await msalInstance.handleRedirectPromise();
 
-            const url = URL_API + "?accion=login&usuario=" + encodeURIComponent(usuario) + "&clave=" + encodeURIComponent(clave);
-
-            fetch(url)
-                .then(function(res) { return res.json(); })
-                .then(function(data) {
-                    if (data.acceso === "permitido") {
-                        document.getElementById("loginScreen").style.display = "none";
-                        document.getElementById("mainApp").style.display = "block";
-
-                        document.getElementById("inputFechaInicio").value = "";
-                        document.getElementById("inputFechaFin").value = "";
-
-                        actualizarDatos();
-                    } else {
-                        document.getElementById("mensajeLogin").innerText = "Acceso denegado o usuario no aprobado.";
-                    }
-                })
-                .catch(function(err) {
-                    console.error(err);
-                    document.getElementById("mensajeLogin").innerText = "Error al conectar con el servidor.";
-                });
+        if (respuesta && respuesta.account) {
+            msalInstance.setActiveAccount(respuesta.account);
+            mostrarDashboard(respuesta.account);
+            return;
         }
 
+        const cuentas = msalInstance.getAllAccounts();
+
+        if (cuentas.length > 0) {
+            msalInstance.setActiveAccount(cuentas[0]);
+            mostrarDashboard(cuentas[0]);
+        } else {
+            mostrarPantallaLogin();
+        }
+
+    } catch (error) {
+        console.error("Error inicializando Microsoft SSO:", error);
+
+        mostrarPantallaLogin();
+
+        document.getElementById("mensajeLogin").innerText =
+            obtenerMensajeErrorMicrosoft(error);
+    }
+}
+
+async function iniciarSesionMicrosoft() {
+    const mensaje = document.getElementById("mensajeLogin");
+    mensaje.innerText = "Redirigiendo a Microsoft...";
+
+    try {
+        await msalInstance.loginRedirect(loginRequest);
+    } catch (error) {
+        console.error("Error de inicio de sesión:", error);
+
+        mensaje.innerText =
+            obtenerMensajeErrorMicrosoft(error);
+    }
+}
+
+function mostrarDashboard(cuenta) {
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("mainApp").style.display = "block";
+
+    const nombre =
+        cuenta.name ||
+        cuenta.username ||
+        "Usuario";
+
+    document.getElementById("usuarioMicrosoft").innerText =
+        nombre;
+
+    document.getElementById("inputFechaInicio").value = "";
+    document.getElementById("inputFechaFin").value = "";
+
+    actualizarDatos();
+}
+
+function mostrarPantallaLogin() {
+    document.getElementById("mainApp").style.display = "none";
+    document.getElementById("loginScreen").style.display = "flex";
+
+    document.getElementById("mensajeLogin").innerText = "";
+}
+
+async function cerrarSesionMicrosoft() {
+    const cuenta =
+        msalInstance.getActiveAccount() ||
+        msalInstance.getAllAccounts()[0];
+
+    await msalInstance.logoutRedirect({
+        account: cuenta,
+        postLogoutRedirectUri: REDIRECT_URI
+    });
+}
+
+function obtenerMensajeErrorMicrosoft(error) {
+    const codigo = error && error.errorCode
+        ? error.errorCode
+        : "";
+
+    if (codigo === "user_cancelled") {
+        return "El inicio de sesión fue cancelado.";
+    }
+
+    if (codigo === "popup_window_error") {
+        return "El navegador bloqueó la ventana de inicio de sesión.";
+    }
+
+    return "No se pudo iniciar sesión con Microsoft. Revisa la configuración de Entra.";
+}
+        
         function limpiarFiltros() {
             document.getElementById("filtroCamara").value = "todas";
             document.getElementById("inputFechaInicio").value = "";
             document.getElementById("inputFechaFin").value = "";
             document.getElementById("filtroVistaTabla").value = "todos";
             aplicarFiltrosYActualizar();
-        }
-
-        function cerrarSesion() {
-            document.getElementById("mainApp").style.display = "none";
-            document.getElementById("loginScreen").style.display = "flex";
-            document.getElementById("usuarioInput").value = "";
-            document.getElementById("claveInput").value = "";
-            document.getElementById("mensajeLogin").innerText = "";
-            mostrarRegistro(false);
         }
 
         function toggleDarkMode() {
@@ -962,8 +1030,16 @@
                 tableLineWidth: 0.3
             });
 
-            const usuarioInput = document.getElementById("usuarioInput");
-            const usuarioActual = usuarioInput && usuarioInput.value ? usuarioInput.value : "admin";
+            const cuentaMicrosoft =
+    msalInstance.getActiveAccount();
+
+const usuarioActual =
+    cuentaMicrosoft
+        ? (
+            cuentaMicrosoft.name ||
+            cuentaMicrosoft.username
+          )
+        : "Usuario Microsoft";
             const fechaHoraActual = new Date().toLocaleString("es-VE");
 
             doc.setFont("helvetica", "normal");
@@ -1042,6 +1118,9 @@
 
             doc.save(filename);
         }
+        document.addEventListener("DOMContentLoaded", function() {
+    inicializarSSO();
+});
     </script>
 </body>
 </html>
