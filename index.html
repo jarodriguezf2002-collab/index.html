@@ -8,7 +8,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+    <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js" crossorigin="anonymous"></script>
+    <script>
+        if (typeof msal === "undefined") {
+            const fallbackMsal = document.createElement("script");
+            fallbackMsal.src = "https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js";
+            fallbackMsal.crossOrigin = "anonymous";
+            document.head.appendChild(fallbackMsal);
+        }
+    </script>
     
     <style>
         :root {
@@ -348,34 +356,26 @@
 <body>
 
     <div id="loginScreen">
-    <div class="login-card">
-
-        <div id="formLogin">
-            <h2>Iniciar sesión</h2>
-
-            <p style="font-size:14px; color:var(--secondary);">
-                Accede con tu cuenta corporativa de Laboratorios LETI.
-            </p>
-
-            <button type="button" onclick="iniciarSesionMicrosoft()">
-                INICIAR SESIÓN CON MICROSOFT
-            </button>
-
-            <p id="mensajeLogin" style="color:var(--danger);"></p>
+        <div class="login-card">
+            <div id="formLogin">
+                <h2>Iniciar sesión</h2>
+                <p style="font-size:14px; color:var(--secondary);">
+                    Accede con tu cuenta corporativa de Laboratorios LETI.
+                </p>
+                <button type="button" onclick="iniciarSesionMicrosoft()">
+                    INICIAR SESIÓN CON MICROSOFT
+                </button>
+                <p id="mensajeLogin" style="color:var(--danger);"></p>
+            </div>
         </div>
-
     </div>
-</div>
-
 
     <div id="mainApp">
         <header>
             <h1>MONITOREO DE ESTABILIDAD</h1>
             <p>Control de Temperatura y Humedad Relativa - Grupo LETI</p>
             <div class="header-buttons">
-                <span id="usuarioMicrosoft"
-      style="display:flex; align-items:center; font-size:13px;">
-</span>
+                <span id="usuarioMicrosoft" style="display:flex; align-items:center; font-size:13px;"></span>
                 <button type="button" class="top-btn" onclick="toggleDarkMode()">🌓 Modo Oscuro</button>
                 <button type="button" class="top-btn" onclick="cerrarSesionMicrosoft()">Cerrar sesión</button>
             </div>
@@ -506,61 +506,58 @@
     </div>
 
     <script>
-const SUPABASE_URL =
-    "https://vzmnlkqdwuaiauznlijz.supabase.co";
+        const SUPABASE_URL = "https://vzmnlkqdwuaiauznlijz.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_JrzuRZu5E5J7aopUX8_5ow_lupeOMX9";
+        const CLIENT_ID = "6e29c539-1074-4a31-a206-7fa7d7fdb9bf";
+        const TENANT_ID = "2f5a4c2b-1ce8-4b06-8a5c-7a77d7b80c9c";
+        const REDIRECT_URI = "https://jarodriguezf2002-collab.github.io/index.html/";
 
-const SUPABASE_KEY =
-    "sb_publishable_JrzuRZu5E5J7aopUX8_5ow_lupeOMX9";
+        const msalConfig = {
+            auth: {
+                clientId: CLIENT_ID,
+                authority: "https://login.microsoftonline.com/" + TENANT_ID,
+                redirectUri: REDIRECT_URI,
+                postLogoutRedirectUri: REDIRECT_URI,
+                navigateToLoginRequestUrl: true
+            },
+            cache: {
+                cacheLocation: "localStorage",
+                storeAuthStateInCookie: false
+            }
+        };
 
-const CLIENT_ID =
-    "6e29c539-1074-4a31-a206-7fa7d7fdb9bf";
+        const loginRequest = {
+            scopes: ["openid", "profile", "email"]
+        };
 
-const TENANT_ID =
-    "2f5a4c2b-1ce8-4b06-8a5c-7a77d7b80c9c";
+        let msalInstance = null;
 
-const REDIRECT_URI =
-    "https://jarodriguezf2002-collab.github.io/index.html/";
+        function obtenerMsalInstance() {
+            if (msalInstance) {
+                return msalInstance;
+            }
+            if (typeof msal === "undefined" || !msal.PublicClientApplication) {
+                throw new Error("No se pudo cargar la librería de autenticación de Microsoft (MSAL). Verifica la prevención de seguimiento del navegador o tu conexión.");
+            }
+            msalInstance = new msal.PublicClientApplication(msalConfig);
+            return msalInstance;
+        }
 
-const msalConfig = {
-    auth: {
-        clientId: CLIENT_ID,
-        authority: "https://login.microsoftonline.com/" + TENANT_ID,
-        redirectUri: REDIRECT_URI,
-        postLogoutRedirectUri: REDIRECT_URI,
-        navigateToLoginRequestUrl: true
-    },
-    cache: {
-        cacheLocation: "localStorage",
-        storeAuthStateInCookie: false
-    }
-};
+        let datosGlobales = {
+            historial: [],
+            alarmas: []
+        };
 
-const loginRequest = {
-    scopes: [
-        "openid",
-        "profile",
-        "email"
-    ]
-};
+        let charts = {
+            tempNat: null,
+            tempAce: null,
+            humNat: null,
+            humAce: null
+        };
 
-const msalInstance =
-    new msal.PublicClientApplication(msalConfig);
-
-let datosGlobales = {
-    historial: [],
-    alarmas: []
-};
-
-let charts = {
-    tempNat: null,
-    tempAce: null,
-    humNat: null,
-    humAce: null
-};
-
-let paginaActual = 1;
-let registrosPorPagina = 10;
-let historialFiltradoGlobal = [];
+        let paginaActual = 1;
+        let registrosPorPagina = 10;
+        let historialFiltradoGlobal = [];
 
         function obtenerFechaLocalYYYYMMDD(dateObj) {
             const d = dateObj || new Date();
@@ -605,138 +602,112 @@ let historialFiltradoGlobal = [];
             return texto;
         }
 
-            
+        async function inicializarSSO() {
+            try {
+                const appMsal = obtenerMsalInstance();
+                if (typeof appMsal.initialize === "function") {
+                    await appMsal.initialize();
+                }
 
-async function inicializarSSO() {
-    try {
-        const respuesta =
-            await msalInstance.handleRedirectPromise();
+                const respuesta = await appMsal.handleRedirectPromise();
 
-        if (respuesta && respuesta.account) {
-            msalInstance.setActiveAccount(respuesta.account);
-            mostrarDashboard(respuesta.account);
-            return;
+                if (respuesta && respuesta.account) {
+                    appMsal.setActiveAccount(respuesta.account);
+                    mostrarDashboard(respuesta.account);
+                    return;
+                }
+
+                const cuentas = appMsal.getAllAccounts();
+
+                if (cuentas.length > 0) {
+                    appMsal.setActiveAccount(cuentas[0]);
+                    mostrarDashboard(cuentas[0]);
+                } else {
+                    mostrarPantallaLogin();
+                }
+            } catch (error) {
+                console.error("Error inicializando Microsoft SSO:", error);
+                mostrarPantallaLogin();
+                document.getElementById("mensajeLogin").innerText = obtenerMensajeErrorMicrosoft(error);
+            }
         }
 
-        const cuentas = msalInstance.getAllAccounts();
+        async function iniciarSesionMicrosoft() {
+            const mensaje = document.getElementById("mensajeLogin");
+            mensaje.innerText = "Redirigiendo a Microsoft...";
 
-        if (cuentas.length > 0) {
-            msalInstance.setActiveAccount(cuentas[0]);
-            mostrarDashboard(cuentas[0]);
-        } else {
-            mostrarPantallaLogin();
+            try {
+                const appMsal = obtenerMsalInstance();
+                if (typeof appMsal.initialize === "function") {
+                    await appMsal.initialize();
+                }
+                await appMsal.loginRedirect(loginRequest);
+            } catch (error) {
+                console.error("Error de inicio de sesión:", error);
+                mensaje.innerText = obtenerMensajeErrorMicrosoft(error);
+            }
         }
 
-    } catch (error) {
-        console.error(
-            "Error inicializando Microsoft SSO:",
-            error
-        );
+        function mostrarDashboard(cuenta) {
+            document.getElementById("loginScreen").style.display = "none";
+            document.getElementById("mainApp").style.display = "block";
 
-        mostrarPantallaLogin();
+            const nombre = cuenta.name || cuenta.username || "Usuario";
+            document.getElementById("usuarioMicrosoft").innerText = nombre;
+            document.getElementById("inputFechaInicio").value = "";
+            document.getElementById("inputFechaFin").value = "";
 
-        document.getElementById("mensajeLogin").innerText =
-            obtenerMensajeErrorMicrosoft(error);
-    }
-}
+            actualizarDatos();
+        }
 
-async function iniciarSesionMicrosoft() {
-    const mensaje =
-        document.getElementById("mensajeLogin");
+        function mostrarPantallaLogin() {
+            document.getElementById("mainApp").style.display = "none";
+            document.getElementById("loginScreen").style.display = "flex";
+            document.getElementById("mensajeLogin").innerText = "";
+        }
 
-    mensaje.innerText =
-        "Redirigiendo a Microsoft...";
+        async function cerrarSesionMicrosoft() {
+            try {
+                const appMsal = obtenerMsalInstance();
+                const cuenta = appMsal.getActiveAccount() || appMsal.getAllAccounts()[0];
 
-    try {
-        await msalInstance.loginRedirect(loginRequest);
-    } catch (error) {
-        console.error(
-            "Error de inicio de sesión:",
-            error
-        );
+                if (!cuenta) {
+                    mostrarPantallaLogin();
+                    return;
+                }
 
-        mensaje.innerText =
-            obtenerMensajeErrorMicrosoft(error);
-    }
-}
+                await appMsal.logoutRedirect({
+                    account: cuenta,
+                    postLogoutRedirectUri: REDIRECT_URI
+                });
+            } catch (error) {
+                console.error("Error al cerrar sesión:", error);
+                mostrarPantallaLogin();
+            }
+        }
 
-function mostrarDashboard(cuenta) {
-    document.getElementById("loginScreen").style.display =
-        "none";
+        function obtenerMensajeErrorMicrosoft(error) {
+            console.error("Detalle de autenticación:", error);
 
-    document.getElementById("mainApp").style.display =
-        "block";
+            if (error && error.message && error.message.indexOf("librería de autenticación") !== -1) {
+                return error.message;
+            }
 
-    const nombre =
-        cuenta.name ||
-        cuenta.username ||
-        "Usuario";
+            const codigo = error && error.errorCode ? error.errorCode : "";
 
-    document.getElementById(
-        "usuarioMicrosoft"
-    ).innerText = nombre;
+            if (codigo === "user_cancelled") {
+                return "El inicio de sesión fue cancelado.";
+            }
+            if (codigo === "interaction_in_progress") {
+                return "Ya existe un inicio de sesión en curso. Recarga la página.";
+            }
+            if (codigo === "redirect_uri_mismatch") {
+                return "La dirección de la página no coincide con la URI registrada en Microsoft Entra.";
+            }
 
-    document.getElementById(
-        "inputFechaInicio"
-    ).value = "";
+            return "No se pudo iniciar sesión con Microsoft. Revisa la consola para ver el detalle.";
+        }
 
-    document.getElementById(
-        "inputFechaFin"
-    ).value = "";
-
-    actualizarDatos();
-}
-
-function mostrarPantallaLogin() {
-    document.getElementById("mainApp").style.display =
-        "none";
-
-    document.getElementById("loginScreen").style.display =
-        "flex";
-
-    document.getElementById("mensajeLogin").innerText =
-        "";
-}
-
-async function cerrarSesionMicrosoft() {
-    const cuenta =
-        msalInstance.getActiveAccount() ||
-        msalInstance.getAllAccounts()[0];
-
-    if (!cuenta) {
-        mostrarPantallaLogin();
-        return;
-    }
-
-    await msalInstance.logoutRedirect({
-        account: cuenta,
-        postLogoutRedirectUri: REDIRECT_URI
-    });
-}
-
-function obtenerMensajeErrorMicrosoft(error) {
-    console.error("Detalle de autenticación:", error);
-
-    const codigo =
-        error && error.errorCode
-            ? error.errorCode
-            : "";
-
-    if (codigo === "user_cancelled") {
-        return "El inicio de sesión fue cancelado.";
-    }
-
-    if (codigo === "interaction_in_progress") {
-        return "Ya existe un inicio de sesión en curso. Recarga la página.";
-    }
-
-    if (codigo === "redirect_uri_mismatch") {
-        return "La dirección de la página no coincide con la URI registrada en Microsoft Entra.";
-    }
-
-    return "No se pudo iniciar sesión con Microsoft. Revisa la consola para ver el detalle.";
-}
-        
         function limpiarFiltros() {
             document.getElementById("filtroCamara").value = "todas";
             document.getElementById("inputFechaInicio").value = "";
@@ -1056,16 +1027,16 @@ function obtenerMensajeErrorMicrosoft(error) {
                 tableLineWidth: 0.3
             });
 
-            const cuentaMicrosoft =
-    msalInstance.getActiveAccount();
+            let cuentaMicrosoft = null;
+            try {
+                cuentaMicrosoft = obtenerMsalInstance().getActiveAccount();
+            } catch (e) {
+                cuentaMicrosoft = null;
+            }
 
-const usuarioActual =
-    cuentaMicrosoft
-        ? (
-            cuentaMicrosoft.name ||
-            cuentaMicrosoft.username
-          )
-        : "Usuario Microsoft";
+            const usuarioActual = cuentaMicrosoft
+                ? (cuentaMicrosoft.name || cuentaMicrosoft.username)
+                : "Usuario Microsoft";
             const fechaHoraActual = new Date().toLocaleString("es-VE");
 
             doc.setFont("helvetica", "normal");
@@ -1144,12 +1115,10 @@ const usuarioActual =
 
             doc.save(filename);
         }
-        document.addEventListener(
-    "DOMContentLoaded",
-    function () {
-        inicializarSSO();
-    }
-);
+
+        document.addEventListener("DOMContentLoaded", function () {
+            inicializarSSO();
+        });
     </script>
 </body>
 </html>
