@@ -507,22 +507,21 @@
 
     <script>
         
-        const SUPABASE_URL = "https://vzmnlkqdwuaiauznlijz.supabase.co";
-        const SUPABASE_KEY = "sb_publishable_JrzuRZu5E5J7aopUX8_5ow_lupeOMX9";
-        const CLIENT_ID = "6e29c539-1074-4a31-a206-7fa7d7fdb9bf";
-        const TENANT_ID = "2f5a4c2b-1ce8-4b06-8a5c-7a77d7b80c9c";
-        const REDIRECT_URI = "https://jarodriguezf2002-collab.github.io/";
-        const msalConfig = {
-    auth: {
-        const CLIENT_ID =
+       const SUPABASE_URL =
+    "https://vzmnlkqdwuaiauznlijz.supabase.co";
+
+const SUPABASE_KEY =
+    "sb_publishable_JrzuRZu5E5J7aopUX8_5ow_lupeOMX9";
+
+const CLIENT_ID =
     "6e29c539-1074-4a31-a206-7fa7d7fdb9bf";
 
 const TENANT_ID =
     "2f5a4c2b-1ce8-4b06-8a5c-7a77d7b80c9c";
 
 const REDIRECT_URI =
-    "https://jarodriguezf2002-collab.github.io/";
-
+"https://jarodriguezf2002-collab.github.io/index.html/";
+        
 const msalConfig = {
     auth: {
         clientId: CLIENT_ID,
@@ -549,6 +548,21 @@ const loginRequest = {
 const msalInstance =
     new msal.PublicClientApplication(msalConfig);
 
+let datosGlobales = {
+    historial: [],
+    alarmas: []
+};
+
+let charts = {
+    tempNat: null,
+    tempAce: null,
+    humNat: null,
+    humAce: null
+};
+
+let paginaActual = 1;
+let registrosPorPagina = 10;
+let historialFiltradoGlobal = [];
         let datosGlobales = { historial: [], alarmas: [] };
         let charts = { tempNat: null, tempAce: null, humNat: null, humAce: null };
 
@@ -603,7 +617,6 @@ const msalInstance =
 
 async function inicializarSSO() {
     try {
-        
         const respuesta =
             await msalInstance.handleRedirectPromise();
 
@@ -623,7 +636,10 @@ async function inicializarSSO() {
         }
 
     } catch (error) {
-        console.error("Error inicializando Microsoft SSO:", error);
+        console.error(
+            "Error inicializando Microsoft SSO:",
+            error
+        );
 
         mostrarPantallaLogin();
 
@@ -633,13 +649,19 @@ async function inicializarSSO() {
 }
 
 async function iniciarSesionMicrosoft() {
-    const mensaje = document.getElementById("mensajeLogin");
-    mensaje.innerText = "Redirigiendo a Microsoft...";
+    const mensaje =
+        document.getElementById("mensajeLogin");
+
+    mensaje.innerText =
+        "Redirigiendo a Microsoft...";
 
     try {
         await msalInstance.loginRedirect(loginRequest);
     } catch (error) {
-        console.error("Error de inicio de sesión:", error);
+        console.error(
+            "Error de inicio de sesión:",
+            error
+        );
 
         mensaje.innerText =
             obtenerMensajeErrorMicrosoft(error);
@@ -647,34 +669,52 @@ async function iniciarSesionMicrosoft() {
 }
 
 function mostrarDashboard(cuenta) {
-    document.getElementById("loginScreen").style.display = "none";
-    document.getElementById("mainApp").style.display = "block";
+    document.getElementById("loginScreen").style.display =
+        "none";
+
+    document.getElementById("mainApp").style.display =
+        "block";
 
     const nombre =
         cuenta.name ||
         cuenta.username ||
         "Usuario";
 
-    document.getElementById("usuarioMicrosoft").innerText =
-        nombre;
+    document.getElementById(
+        "usuarioMicrosoft"
+    ).innerText = nombre;
 
-    document.getElementById("inputFechaInicio").value = "";
-    document.getElementById("inputFechaFin").value = "";
+    document.getElementById(
+        "inputFechaInicio"
+    ).value = "";
+
+    document.getElementById(
+        "inputFechaFin"
+    ).value = "";
 
     actualizarDatos();
 }
 
 function mostrarPantallaLogin() {
-    document.getElementById("mainApp").style.display = "none";
-    document.getElementById("loginScreen").style.display = "flex";
+    document.getElementById("mainApp").style.display =
+        "none";
 
-    document.getElementById("mensajeLogin").innerText = "";
+    document.getElementById("loginScreen").style.display =
+        "flex";
+
+    document.getElementById("mensajeLogin").innerText =
+        "";
 }
 
 async function cerrarSesionMicrosoft() {
     const cuenta =
         msalInstance.getActiveAccount() ||
         msalInstance.getAllAccounts()[0];
+
+    if (!cuenta) {
+        mostrarPantallaLogin();
+        return;
+    }
 
     await msalInstance.logoutRedirect({
         account: cuenta,
@@ -683,19 +723,26 @@ async function cerrarSesionMicrosoft() {
 }
 
 function obtenerMensajeErrorMicrosoft(error) {
-    const codigo = error && error.errorCode
-        ? error.errorCode
-        : "";
+    console.error("Detalle de autenticación:", error);
+
+    const codigo =
+        error && error.errorCode
+            ? error.errorCode
+            : "";
 
     if (codigo === "user_cancelled") {
         return "El inicio de sesión fue cancelado.";
     }
 
-    if (codigo === "popup_window_error") {
-        return "El navegador bloqueó la ventana de inicio de sesión.";
+    if (codigo === "interaction_in_progress") {
+        return "Ya existe un inicio de sesión en curso. Recarga la página.";
     }
 
-    return "No se pudo iniciar sesión con Microsoft. Revisa la configuración de Entra.";
+    if (codigo === "redirect_uri_mismatch") {
+        return "La dirección de la página no coincide con la URI registrada en Microsoft Entra.";
+    }
+
+    return "No se pudo iniciar sesión con Microsoft. Revisa la consola para ver el detalle.";
 }
         
         function limpiarFiltros() {
@@ -1105,9 +1152,12 @@ const usuarioActual =
 
             doc.save(filename);
         }
-        document.addEventListener("DOMContentLoaded", function() {
-    inicializarSSO();
-});
+        document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+        inicializarSSO();
+    }
+);
     </script>
 </body>
 </html>
