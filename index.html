@@ -506,8 +506,7 @@
     </div>
 
     <script>
-        
-       const SUPABASE_URL =
+const SUPABASE_URL =
     "https://vzmnlkqdwuaiauznlijz.supabase.co";
 
 const SUPABASE_KEY =
@@ -520,13 +519,12 @@ const TENANT_ID =
     "2f5a4c2b-1ce8-4b06-8a5c-7a77d7b80c9c";
 
 const REDIRECT_URI =
-"https://jarodriguezf2002-collab.github.io/index.html/";
-        
+    "https://jarodriguezf2002-collab.github.io/index.html/";
+
 const msalConfig = {
     auth: {
         clientId: CLIENT_ID,
-        authority:
-            "https://login.microsoftonline.com/" + TENANT_ID,
+        authority: "https://login.microsoftonline.com/" + TENANT_ID,
         redirectUri: REDIRECT_URI,
         postLogoutRedirectUri: REDIRECT_URI,
         navigateToLoginRequestUrl: true
@@ -563,12 +561,6 @@ let charts = {
 let paginaActual = 1;
 let registrosPorPagina = 10;
 let historialFiltradoGlobal = [];
-        let datosGlobales = { historial: [], alarmas: [] };
-        let charts = { tempNat: null, tempAce: null, humNat: null, humAce: null };
-
-        let paginaActual = 1;
-        let registrosPorPagina = 10;
-        let historialFiltradoGlobal = [];
 
         function obtenerFechaLocalYYYYMMDD(dateObj) {
             const d = dateObj || new Date();
