@@ -348,19 +348,23 @@
 <body>
 
     <div id="loginScreen">
-        <div class="login-card">
-            <div id="formLogin">
-    <h2>Iniciar sesión</h2>
+    <div class="login-card">
 
-    <p style="font-size:14px; color:var(--secondary);">
-        Accede con tu cuenta corporativa de Laboratorios LETI.
-    </p>
+        <div id="formLogin">
+            <h2>Iniciar sesión</h2>
 
-    <button type="button" onclick="iniciarSesionMicrosoft()">
-        INICIAR SESIÓN CON MICROSOFT
-    </button>
+            <p style="font-size:14px; color:var(--secondary);">
+                Accede con tu cuenta corporativa de Laboratorios LETI.
+            </p>
 
-    <p id="mensajeLogin" style="color:var(--danger);"></p>
+            <button type="button" onclick="iniciarSesionMicrosoft()">
+                INICIAR SESIÓN CON MICROSOFT
+            </button>
+
+            <p id="mensajeLogin" style="color:var(--danger);"></p>
+        </div>
+
+    </div>
 </div>
 
 
@@ -373,7 +377,7 @@
       style="display:flex; align-items:center; font-size:13px;">
 </span>
                 <button type="button" class="top-btn" onclick="toggleDarkMode()">🌓 Modo Oscuro</button>
-                <button type="button" class="top-btn" onclick="cerrarSesion()">Cerrar sesión</button>
+                <button type="button" class="top-btn" onclick="cerrarSesionMicrosoft()">Cerrar sesión</button>
             </div>
         </header>
 
@@ -507,21 +511,27 @@
         const SUPABASE_KEY = "sb_publishable_JrzuRZu5E5J7aopUX8_5ow_lupeOMX9";
         const CLIENT_ID = "6e29c539-1074-4a31-a206-7fa7d7fdb9bf";
         const TENANT_ID = "2f5a4c2b-1ce8-4b06-8a5c-7a77d7b80c9c";
-        const REDIRECT_URI = "https://jarodriguezf2002-collab.github.io/index.html";
+        const REDIRECT_URI = "https://jarodriguezf2002-collab.github.io/";
         const msalConfig = {
     auth: {
-        clientId: CLIENT_ID,
+        const CLIENT_ID =
+    "6e29c539-1074-4a31-a206-7fa7d7fdb9bf";
 
+const TENANT_ID =
+    "2f5a4c2b-1ce8-4b06-8a5c-7a77d7b80c9c";
+
+const REDIRECT_URI =
+    "https://jarodriguezf2002-collab.github.io/";
+
+const msalConfig = {
+    auth: {
+        clientId: CLIENT_ID,
         authority:
             "https://login.microsoftonline.com/" + TENANT_ID,
-
         redirectUri: REDIRECT_URI,
-
         postLogoutRedirectUri: REDIRECT_URI,
-
         navigateToLoginRequestUrl: true
     },
-
     cache: {
         cacheLocation: "localStorage",
         storeAuthStateInCookie: false
@@ -589,34 +599,11 @@ const msalInstance =
             return texto;
         }
 
-            document.getElementById("mensajeRegistro").style.color = "var(--success)";
-            document.getElementById("mensajeRegistro").innerText = "Enviando solicitud al jefe...";
-
-            const url = URL_API + "?accion=registrar&nombre=" + encodeURIComponent(nombre) +
-                "&apellido=" + encodeURIComponent(apellido) +
-                "&sap=" + encodeURIComponent(sap) +
-                "&telefono=" + encodeURIComponent(telefono);
-
-            fetch(url)
-                .then(function(res) { return res.json(); })
-                .then(function() {
-                    document.getElementById("mensajeRegistro").innerText = "¡Solicitud enviada! Espera la aprobación del jefe para ingresar.";
-                    document.getElementById("regNombre").value = "";
-                    document.getElementById("regApellido").value = "";
-                    document.getElementById("regSap").value = "";
-                    document.getElementById("regTelefono").value = "";
-                })
-                .catch(function(err) {
-                    console.error(err);
-                    document.getElementById("mensajeRegistro").style.color = "var(--danger)";
-                    document.getElementById("mensajeRegistro").innerText = "Error al enviar la solicitud.";
-                });
-        }
+            
 
 async function inicializarSSO() {
     try {
-        await msalInstance.initialize();
-
+        
         const respuesta =
             await msalInstance.handleRedirectPromise();
 
