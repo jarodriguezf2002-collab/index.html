@@ -765,6 +765,54 @@
             }
         }
 
+        function calcularEstadoLectura(temp, hum) {
+  if (Number(temp) > 30 || Number(hum) > 80) return "Alerta";
+  return "Normal";
+}
+
+async function guardarLecturasEnSupabase(lecturas, nombreCamara = "Cámara Natural") {
+  if (!Array.isArray(lecturas) || lecturas.length === 0) return;
+
+  const filas = lecturas
+    .map(function (item) {
+      const temp = parseFloat(item.temperatura ?? item.Temperatura);
+      const hum = parseFloat(item.humedad ?? item.Humedad);
+      const fechaRaw = item.fecha ?? item.tiempo ?? item.Tiempo;
+      if (isNaN(temp) || isNaN(hum) || !fechaRaw) return null;
+
+      const fechaIso = new Date(String(fechaRaw).trim().replace(" ", "T")).toISOString();
+      return {
+        camara: item.camara || nombreCamara,
+        temperatura: temp,
+        humedad: hum,
+        estado: item.estado || calcularEstadoLectura(temp, hum),
+        fecha: fechaIso
+      };
+    })
+    .filter(Boolean);
+
+  if (filas.length === 0) return;
+
+  const resp = await fetch(
+    SUPABASE_URL + "/rest/v1/mediciones?on_conflict=camara,fecha",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_KEY,
+        Authorization: "Bearer " + SUPABASE_KEY,
+        Prefer: "resolution=ignore-duplicates,return=minimal"
+      },
+      body: JSON.stringify(filas)
+    }
+  );
+
+  if (!resp.ok) {
+    const detalle = await resp.text();
+    throw new Error("Error guardando en mediciones: " + detalle);
+  }
+}
+        
         async function actualizarDatos() {
             const btn = document.getElementById("btnActualizar");
             const icono = document.getElementById("iconoCarga");
