@@ -1,0 +1,19 @@
+{
+  "actualizado_en": "2026-11-23T12:00:00-04:00",
+  "lecturas": [
+    {
+      "camara": "Cámara Natural",
+      "deviceId": "c8428d47-28ab-4962-b6b9-73b49e71ef55",
+      "devEui": "24e124725E336781",
+      "temperatura": 29.5,
+      "humedad": 75.0
+    },
+    {
+      "camara": "Cámara Acelerada",
+      "deviceId": "720a245e-612b-4554-bad0-de991e02838d",
+      "devEui": "24e124725E337197",
+      "temperatura": 40.1,
+      "humedad": 74.5
+    }
+  ]
+}
