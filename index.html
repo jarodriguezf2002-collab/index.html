@@ -1,1170 +1,1318 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Monitoreo de Estabilidad - Grupo LETI</title>
-
-  <!-- MSAL.js (Microsoft Entra SSO) con respaldo -->
-  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
-  <script>
-    if (typeof msal === "undefined") {
-      document.write('<script src="https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"><\/script>');
-    }
-  </script>
-
-  <!-- Chart.js para gráficas -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- SheetJS (Excel) y jsPDF + AutoTable (PDF) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-
-  <style>
-    :root {
-      --primary-blue: #003DA5;
-      --accent-red: #C8102E;
-      --neutral-gray: #666666;
-      --bg-color: #EDEDED;
-      --card-bg: #FFFFFF;
-      --text-main: #1E1E1E;
-      --text-muted: #666666;
-      --border-color: #D9D9D9;
-      --normal-bg: #E6F4EA;
-      --normal-text: #137333;
-      --alert-bg: #FCE8E6;
-      --alert-text: #C8102E;
-    }
-
-    body.dark-mode {
-      --bg-color: #121417;
-      --card-bg: #1E2228;
-      --text-main: #F1F3F5;
-      --text-muted: #ADB5BD;
-      --border-color: #343A40;
-      --normal-bg: rgba(19, 115, 51, 0.22);
-      --normal-text: #6DD58C;
-      --alert-bg: rgba(200, 16, 46, 0.22);
-      --alert-text: #FF7B8E;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      margin: 0;
-      padding: 0;
-      transition: background-color 0.3s, color 0.3s;
-    }
-
-    /* Pantalla de Login */
-    #loginScreen {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      background: linear-gradient(135deg, #003DA5 0%, #002669 100%);
-    }
-
-    .login-card {
-      background: #FFFFFF;
-      color: #1E1E1E;
-      max-width: 420px;
-      width: 100%;
-      border-radius: 14px;
-      padding: 36px 28px;
-      text-align: center;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
-      border-top: 6px solid #C8102E;
-    }
-
-    .login-card h2 {
-      margin: 0 0 8px;
-      color: #003DA5;
-      font-size: 1.55rem;
-    }
-
-    .login-card p {
-      color: #666666;
-      font-size: 0.95rem;
-      margin-bottom: 24px;
-    }
-
-    .btn-msal {
-      width: 100%;
-      padding: 13px 18px;
-      border: none;
-      border-radius: 8px;
-      background-color: #003DA5;
-      color: #FFFFFF;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-
-    .btn-msal:hover {
-      background-color: #002B75;
-    }
-
-    /* Header Principal */
-    header {
-      background-color: var(--primary-blue);
-      color: #FFFFFF;
-      padding: 20px 24px;
-      border-bottom: 4px solid var(--accent-red);
-    }
-
-    .header-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .header-titles h1 {
-      margin: 0;
-      font-size: 1.65rem;
-      letter-spacing: 0.5px;
-    }
-
-    .header-titles p {
-      margin: 4px 0 0;
-      font-size: 0.92rem;
-      opacity: 0.9;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .user-badge {
-      font-size: 0.9rem;
-      font-weight: 600;
-      background: rgba(255, 255, 255, 0.14);
-      padding: 7px 12px;
-      border-radius: 20px;
-    }
-
-    .btn-header {
-      background: rgba(255, 255, 255, 0.18);
-      color: #FFFFFF;
-      border: 1px solid rgba(255, 255, 255, 0.35);
-      padding: 7px 14px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.88rem;
-      transition: background 0.2s;
-    }
-
-    .btn-header:hover {
-      background: rgba(255, 255, 255, 0.3);
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 20px auto;
-      padding: 0 15px 40px;
-    }
-
-    .panel {
-      background-color: var(--card-bg);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-      border: 1px solid var(--border-color);
-    }
-
-    .ultima-act {
-      font-size: 0.92rem;
-      color: var(--text-muted);
-      margin-bottom: 14px;
-      font-weight: 600;
-    }
-
-    .filters-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .filter-group {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .filter-group label {
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-
-    select, input[type="date"] {
-      padding: 8px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
-      background-color: var(--card-bg);
-      color: var(--text-main);
-      font-size: 0.9rem;
-    }
-
-    .btn {
-      padding: 9px 16px;
-      border-radius: 8px;
-      border: none;
-      font-weight: 600;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
-    }
-
-    .btn:active {
-      transform: scale(0.98);
-    }
-
-    .btn-primary {
-      background-color: var(--primary-blue);
-      color: #FFFFFF;
-    }
-
-    .btn-secondary {
-      background-color: var(--neutral-gray);
-      color: #FFFFFF;
-    }
-
-    .btn-excel {
-      background-color: #1D6F42;
-      color: #FFFFFF;
-    }
-
-    .btn-pdf {
-      background-color: var(--accent-red);
-      color: #FFFFFF;
-    }
-
-    /* Tarjetas de Cámaras */
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-
-    .camera-card {
-      background-color: var(--card-bg);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-      border: 1px solid var(--border-color);
-      border-top: 4px solid var(--primary-blue);
-    }
-
-    .camera-card h2 {
-      margin: 0 0 16px;
-      color: var(--primary-blue);
-      font-size: 1.3rem;
-    }
-
-    body.dark-mode .camera-card h2 {
-      color: #6EA8FE;
-    }
-
-    .metrics-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      text-align: center;
-      margin-bottom: 16px;
-    }
-
-    .metric-box span {
-      display: block;
-      font-size: 0.78rem;
-      letter-spacing: 0.6px;
-      color: var(--text-muted);
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-
-    .metric-box strong {
-      font-size: 1.75rem;
-      color: var(--text-main);
-    }
-
-    .minmax-box {
-      background-color: var(--bg-color);
-      border-left: 4px solid var(--primary-blue);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 14px;
-    }
-
-    .minmax-box h4 {
-      margin: 0 0 10px;
-      font-size: 0.8rem;
-      color: var(--primary-blue);
-      letter-spacing: 0.4px;
-    }
-
-    body.dark-mode .minmax-box h4 {
-      color: #6EA8FE;
-    }
-
-    .minmax-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .minmax-item {
-      background: var(--card-bg);
-      padding: 8px 10px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      border: 1px solid var(--border-color);
-    }
-
-    .status-pill {
-      text-align: center;
-      padding: 9px;
-      border-radius: 20px;
-      font-weight: 700;
-      font-size: 0.88rem;
-      letter-spacing: 0.5px;
-      background-color: var(--normal-bg);
-      color: var(--normal-text);
-    }
-
-    .status-pill.alerta {
-      background-color: var(--alert-bg);
-      color: var(--alert-text);
-    }
-
-    /* Gráficas (2 por cámara = 4 gráficas) */
-    .charts-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(320px, 1fr));
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-
-    @media (max-width: 768px) {
-      .charts-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .chart-card {
-      background-color: var(--card-bg);
-      border-radius: 12px;
-      padding: 18px;
-      border: 1px solid var(--border-color);
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-    }
-
-    .chart-card h3 {
-      margin: 0 0 12px;
-      font-size: 1.02rem;
-      color: var(--primary-blue);
-    }
-
-    body.dark-mode .chart-card h3 {
-      color: #6EA8FE;
-    }
-
-    .chart-wrapper {
-      position: relative;
-      height: 240px;
-      width: 100%;
-    }
-
-    /* Tabla */
-    .table-header-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .table-responsive {
-      overflow-x: auto;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.92rem;
-    }
-
-    th, td {
-      padding: 12px 14px;
-      text-align: left;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    th {
-      background-color: var(--bg-color);
-      color: var(--primary-blue);
-      font-weight: 700;
-    }
-
-    body.dark-mode th {
-      color: #6EA8FE;
-    }
-
-    .estado-normal {
-      color: var(--normal-text);
-      font-weight: 700;
-    }
-
-    .estado-alerta {
-      color: var(--alert-text);
-      font-weight: 700;
-    }
-
-    .pagination-bar {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-top: 14px;
-      font-size: 0.9rem;
-      color: var(--text-muted);
-    }
-
-    .pagination-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .page-btn {
-      padding: 6px 11px;
-      border-radius: 6px;
-      border: 1px solid var(--border-color);
-      background: var(--card-bg);
-      color: var(--text-main);
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .page-btn.active {
-      background: var(--primary-blue);
-      color: #FFFFFF;
-      border-color: var(--primary-blue);
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoreo de Estabilidad - Grupo LETI</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js" crossorigin="anonymous"></script>
+    <script>
+        if (typeof msal === "undefined") {
+            document.write('<script src="https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js" crossorigin="anonymous"><\/script>');
+        }
+    </script>
+    
+    <style>
+        :root {
+            --primary: #003DA5;
+            --secondary: #666666;
+            --bg-color: #EDEDED;
+            --card-bg: #FFFFFF;
+            --text-color: #666666;
+            --text-main: #333333;
+            --border-color: #EDEDED;
+            --danger: #C8102E;
+            --success: #28a745;
+            --warning: #ffc107;
+            --minmax-bg: linear-gradient(135deg, #ffffff, #EDEDED);
+            --chart-card-bg: #FFFFFF;
+        }
+
+        [data-theme="dark"] {
+            --primary: #003DA5;
+            --secondary: #888888;
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #EDEDED;
+            --text-main: #FFFFFF;
+            --border-color: #333333;
+            --danger: #C8102E;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --minmax-bg: linear-gradient(135deg, #1e293b, #1e1e1e);
+            --chart-card-bg: #1e1e1e;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        #loginScreen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #003DA5, #666666);
+        }
+
+        .login-card {
+            background: var(--card-bg);
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .login-card h2 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            font-size: 22px;
+        }
+
+        .login-card input {
+            width: 100%;
+            padding: 10px 12px;
+            margin: 8px 0;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-main);
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+
+        .login-card button {
+            width: 100%;
+            background: var(--primary);
+            color: #FFFFFF;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 15px;
+            margin-top: 10px;
+            transition: opacity 0.3s;
+        }
+
+        .login-card button:hover { opacity: 0.9; }
+        
+        .toggle-link {
+            margin-top: 15px;
+            font-size: 13px;
+            color: var(--primary);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        #mensajeLogin, #mensajeRegistro {
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+        #mainApp { display: none; }
+
+        header {
+            background-color: var(--primary);
+            color: #FFFFFF;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .header-buttons {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .top-btn {
+            background: rgba(255,255,255,0.2);
+            color: #FFFFFF;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        .top-btn:hover { background: rgba(255,255,255,0.4); }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        .controls-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            font-size: 14px;
+            flex-wrap: wrap;
+            color: var(--text-main);
+        }
+
+        .filter-group select, .filter-group input {
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-main);
+            font-size: 13px;
+            outline: none;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: #FFFFFF;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.3s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-excel { background: var(--success); color: #FFFFFF; }
+        .btn-pdf { background: var(--danger); color: #FFFFFF; }
+        .btn-clear { background: var(--secondary); color: #FFFFFF; padding: 8px 12px; font-size: 13px; }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: var(--primary);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .metric-group {
+            display: flex;
+            justify-content: space-between;
+            margin: 15px 0;
+        }
+
+        .metric { text-align: center; flex: 1; }
+        .metric .label { font-size: 12px; color: var(--secondary); text-transform: uppercase; }
+        .metric .value { font-size: 24px; font-weight: bold; color: var(--text-main); }
+
+        .min-max-highlight {
+            background: var(--minmax-bg);
+            border-left: 5px solid var(--primary);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+
+        .min-max-highlight h4 {
+            margin: 0 0 8px 0;
+            color: var(--primary);
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+
+        .min-max-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+
+        .min-max-item {
+            background: var(--card-bg);
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 12px;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 15px;
+        }
+        .status-normal { background: #d4edda; color: #155724; }
+        .status-alerta { background: rgba(200, 16, 46, 0.15); color: var(--danger); }
+
+        .section-box {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .section-box h3 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-card {
+            background: var(--chart-card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .chart-card h4 {
+            margin-top: 0;
+            color: var(--primary);
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        table th, table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+            color: var(--text-main);
+        }
+
+        table th { background-color: var(--border-color); color: var(--primary); }
+
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        @keyframes girar {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        #btnActualizar:disabled { opacity: 0.7; cursor: not-allowed; }
+    </style>
 </head>
 <body>
 
-  <!-- Pantalla de Inicio de Sesión SSO -->
-  <div id="loginScreen">
-    <div class="login-card">
-      <h2>Monitoreo de Estabilidad</h2>
-      <p>Control de Temperatura y Humedad Relativa<br><strong>Grupo LETI</strong></p>
-      <button class="btn-msal" onclick="iniciarSesion()">Iniciar sesión con Microsoft 365</button>
+    <div id="loginScreen">
+        <div class="login-card">
+            <div id="formLogin">
+                <h2>Iniciar sesión</h2>
+                <p style="font-size:14px; color:var(--secondary);">
+                    Accede con tu cuenta corporativa de Laboratorios LETI.
+                </p>
+                <button type="button" onclick="iniciarSesionMicrosoft()">
+                    INICIAR SESIÓN CON MICROSOFT
+                </button>
+                <p id="mensajeLogin" style="color:var(--danger);"></p>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- Aplicación Principal -->
-  <div id="mainApp" style="display: none;">
-    <header>
-      <div class="header-inner">
-        <div class="header-titles">
-          <h1>MONITOREO DE ESTABILIDAD</h1>
-          <p>Control de Temperatura y Humedad Relativa - Grupo LETI</p>
-        </div>
-        <div class="header-actions">
-          <span class="user-badge" id="userNameDisplay">Usuario</span>
-          <button class="btn-header" id="darkModeBtn" onclick="toggleDarkMode()">🌓 Modo Oscuro</button>
-          <button class="btn-header" onclick="cerrarSesion()">Cerrar sesión</button>
-        </div>
-      </div>
-    </header>
-
-    <div class="container">
-      <!-- Panel de Control y Filtros -->
-      <div class="panel">
-        <div class="ultima-act" id="ultimaActualizacion">Última actualización: --</div>
-
-        <div class="filters-row">
-          <div class="filter-group">
-            <label for="filtroCamara">Cámara:</label>
-            <select id="filtroCamara" onchange="aplicarFiltros()">
-              <option value="todas">Todas las Cámaras</option>
-              <option value="Cámara Natural">Cámara Natural</option>
-              <option value="Cámara Acelerada">Cámara Acelerada</option>
-            </select>
-          </div>
-
-          <div class="filter-group">
-            <label for="fechaDesde">Desde:</label>
-            <input type="date" id="fechaDesde" onchange="aplicarFiltros()" />
-          </div>
-
-          <div class="filter-group">
-            <label for="fechaHasta">Hasta:</label>
-            <input type="date" id="fechaHasta" onchange="aplicarFiltros()" />
-          </div>
-
-          <div class="filter-group">
-            <label for="filtroVista">Vista:</label>
-            <select id="filtroVista" onchange="aplicarFiltros()">
-              <option value="todos">Todos los Eventos</option>
-              <option value="Normal">Solo Normal</option>
-              <option value="Alerta">Solo Alertas</option>
-            </select>
-          </div>
-
-          <button class="btn btn-secondary" onclick="limpiarFiltros()">Limpiar filtros</button>
-        </div>
-
-        <button class="btn btn-primary" id="btnActualizar" onclick="actualizarDatos()">🔄 Actualizar Ahora</button>
-      </div>
-
-      <!-- Tarjetas de Estado Actual -->
-      <div class="cards-grid">
-        <!-- Cámara Natural -->
-        <div class="camera-card">
-          <h2>Cámara Natural</h2>
-          <div class="metrics-row">
-            <div class="metric-box">
-              <span>TEMPERATURA</span>
-              <strong id="tempNatural">-- °C</strong>
+    <div id="mainApp">
+        <header>
+            <h1>MONITOREO DE ESTABILIDAD</h1>
+            <p>Control de Temperatura y Humedad Relativa - Grupo LETI</p>
+            <div class="header-buttons">
+                <span id="usuarioMicrosoft" style="display:flex; align-items:center; font-size:13px;"></span>
+                <button type="button" class="top-btn" onclick="toggleDarkMode()">🌓 Modo Oscuro</button>
+                <button type="button" class="top-btn" onclick="cerrarSesionMicrosoft()">Cerrar sesión</button>
             </div>
-            <div class="metric-box">
-              <span>HUMEDAD</span>
-              <strong id="humNatural">-- %</strong>
+        </header>
+
+        <div class="container">
+            <div class="controls-bar">
+                <div id="ultimaActualizacion" style="color: var(--text-main);">Última actualización: --</div>
+                
+                <div class="filter-group">
+                    <label for="filtroCamara">Cámara:</label>
+                    <select id="filtroCamara" onchange="aplicarFiltrosYActualizar()">
+                        <option value="todas">Todas las Cámaras</option>
+                        <option value="Cámara Natural">Cámara Natural</option>
+                        <option value="Cámara Acelerada">Cámara Acelerada</option>
+                    </select>
+
+                    <label for="inputFechaInicio">Desde:</label>
+                    <input type="date" id="inputFechaInicio" onchange="aplicarFiltrosYActualizar()">
+                    
+                    <label for="inputFechaFin">Hasta:</label>
+                    <input type="date" id="inputFechaFin" onchange="aplicarFiltrosYActualizar()">
+
+                    <label for="filtroVistaTabla">Vista:</label>
+                    <select id="filtroVistaTabla" onchange="aplicarFiltrosYActualizar()">
+                        <option value="todos">Todos los Eventos</option>
+                        <option value="alarmas">Solo Alarmas</option>
+                    </select>
+
+                    <button type="button" class="btn btn-clear" onclick="limpiarFiltros()">Limpiar filtros</button>
+                </div>
+
+                <button type="button" id="btnActualizar" class="btn" onclick="actualizarDatos()">
+                    <span id="iconoCarga">🔄</span> <span id="textoBtn">Actualizar Ahora</span>
+                </button>
             </div>
-          </div>
-          <div class="minmax-box">
-            <h4>MÍNIMOS Y MÁXIMOS (FILTRADOS)</h4>
-            <div class="minmax-grid">
-              <div class="minmax-item" id="minTempNat">Temp Mín: -- °C</div>
-              <div class="minmax-item" id="maxTempNat">Temp Máx: -- °C</div>
-              <div class="minmax-item" id="minHumNat">Hum Mín: -- %</div>
-              <div class="minmax-item" id="maxHumNat">Hum Máx: -- %</div>
+
+            <div class="cards-grid" id="cardsGridContainer">
+                <div class="card" id="cardNatural">
+                    <h2>Cámara Natural</h2>
+                    <div class="metric-group">
+                        <div class="metric"><div class="label">Temperatura Actual</div><div class="value" id="tempNatural">-- °C</div></div>
+                        <div class="metric"><div class="label">Humedad Actual</div><div class="value" id="humNatural">-- %</div></div>
+                    </div>
+                    
+                    <div class="min-max-highlight">
+                        <h4>Mínimos y Máximos (Filtrados)</h4>
+                        <div class="min-max-grid">
+                            <div class="min-max-item">Temp Mín: <b id="minTempNatural">--</b> °C</div>
+                            <div class="min-max-item">Temp Máx: <b id="maxTempNatural">--</b> °C</div>
+                            <div class="min-max-item">Hum Mín: <b id="minHumNatural">--</b> %</div>
+                            <div class="min-max-item">Hum Máx: <b id="maxHumNatural">--</b> %</div>
+                        </div>
+                    </div>
+
+                    <div id="statusNatural" class="status-badge status-normal">NORMAL</div>
+                </div>
+
+                <div class="card" id="cardAcelerada">
+                    <h2>Cámara Acelerada</h2>
+                    <div class="metric-group">
+                        <div class="metric"><div class="label">Temperatura Actual</div><div class="value" id="tempAcelerada">-- °C</div></div>
+                        <div class="metric"><div class="label">Humedad Actual</div><div class="value" id="humAcelerada">-- %</div></div>
+                    </div>
+
+                    <div class="min-max-highlight">
+                        <h4>Mínimos y Máximos (Filtrados)</h4>
+                        <div class="min-max-grid">
+                            <div class="min-max-item">Temp Mín: <b id="minTempAcelerada">--</b> °C</div>
+                            <div class="min-max-item">Temp Máx: <b id="maxTempAcelerada">--</b> °C</div>
+                            <div class="min-max-item">Hum Mín: <b id="minHumAcelerada">--</b> %</div>
+                            <div class="min-max-item">Hum Máx: <b id="maxHumAcelerada">--</b> %</div>
+                        </div>
+                    </div>
+
+                    <div id="statusAcelerada" class="status-badge status-normal">NORMAL</div>
+                </div>
             </div>
-          </div>
-          <div class="status-pill" id="estadoNatural">NORMAL</div>
-        </div>
 
-        <!-- Cámara Acelerada -->
-        <div class="camera-card">
-          <h2>Cámara Acelerada</h2>
-          <div class="metrics-row">
-            <div class="metric-box">
-              <span>TEMPERATURA</span>
-              <strong id="tempAcelerada">-- °C</strong>
+            <div class="charts-grid" id="gridChartsTemp">
+                <div class="chart-card" id="wrapTempNat">
+                    <h4>Temperatura - Cámara Natural</h4>
+                    <div class="chart-container"><canvas id="graficoTempNatural"></canvas></div>
+                </div>
+                <div class="chart-card" id="wrapTempAce">
+                    <h4>Temperatura - Cámara Acelerada</h4>
+                    <div class="chart-container"><canvas id="graficoTempAcelerada"></canvas></div>
+                </div>
             </div>
-            <div class="metric-box">
-              <span>HUMEDAD</span>
-              <strong id="humAcelerada">-- %</strong>
+
+            <div class="charts-grid" id="gridChartsHum">
+                <div class="chart-card" id="wrapHumNat">
+                    <h4>Humedad - Cámara Natural</h4>
+                    <div class="chart-container"><canvas id="graficoHumNatural"></canvas></div>
+                </div>
+                <div class="chart-card" id="wrapHumAce">
+                    <h4>Humedad - Cámara Acelerada</h4>
+                    <div class="chart-container"><canvas id="graficoHumAcelerada"></canvas></div>
+                </div>
             </div>
-          </div>
-          <div class="minmax-box">
-            <h4>MÍNIMOS Y MÁXIMOS (FILTRADOS)</h4>
-            <div class="minmax-grid">
-              <div class="minmax-item" id="minTempAce">Temp Mín: -- °C</div>
-              <div class="minmax-item" id="maxTempAce">Temp Máx: -- °C</div>
-              <div class="minmax-item" id="minHumAce">Hum Mín: -- %</div>
-              <div class="minmax-item" id="maxHumAce">Hum Máx: -- %</div>
+
+            <div class="section-box">
+                <h3 id="tituloSeccionTabla">Historial de Todos los Eventos (Filtrado)</h3>
+                
+                <div class="export-buttons">
+                    <button type="button" class="btn btn-excel" onclick="exportarExcel('Reporte_Monitoreo.xlsx')">📊 Exportar a Excel</button>
+                    <button type="button" class="btn btn-pdf" onclick="exportarPDF('tablaHistorialEventos', 'Reporte de Monitoreo', 'Reporte_Monitoreo.pdf')">📄 Exportar a PDF</button>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table id="tablaHistorialEventos">
+                        <thead>
+                            <tr>
+                                <th>Fecha y Hora</th>
+                                <th>Cámara</th>
+                                <th>Temperatura</th>
+                                <th>Humedad</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaHistorial"></tbody>
+                    </table>
+                </div>
+
+                <div id="paginacionEventos" style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 5px 0;"></div>
             </div>
-          </div>
-          <div class="status-pill" id="estadoAcelerada">NORMAL</div>
         </div>
-      </div>
-
-      <!-- 4 Gráficas Independientes: 2 para Cámara Natural y 2 para Cámara Acelerada -->
-      <div class="charts-grid">
-        <div class="chart-card">
-          <h3>Cámara Natural — Temperatura (°C)</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartTempNatural"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card">
-          <h3>Cámara Natural — Humedad Relativa (%)</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartHumNatural"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card">
-          <h3>Cámara Acelerada — Temperatura (°C)</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartTempAcelerada"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card">
-          <h3>Cámara Acelerada — Humedad Relativa (%)</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartHumAcelerada"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tabla de Historial -->
-      <div class="panel">
-        <h2 style="margin-top: 0; color: var(--primary-blue);">Historial de Todos los Eventos (Filtrado)</h2>
-
-        <div class="table-header-actions">
-          <button class="btn btn-excel" onclick="exportarExcel()">📊 Exportar a Excel</button>
-          <button class="btn btn-pdf" onclick="exportarPDF()">📄 Exportar a PDF</button>
-        </div>
-
-        <div class="table-responsive">
-          <table id="tablaEventos">
-            <thead>
-              <tr>
-                <th>Fecha y Hora</th>
-                <th>Cámara</th>
-                <th>Temperatura</th>
-                <th>Humedad</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody id="tablaBody"></tbody>
-          </table>
-        </div>
-
-        <div class="pagination-bar">
-          <span id="infoPaginacion">Mostrando página 1 de 1 (Total: 0 registros)</span>
-          <div class="pagination-controls">
-            <button class="page-btn" onclick="cambiarPagina(-1)">&lt;</button>
-            <span class="page-btn active" id="paginaActualBtn">1</span>
-            <button class="page-btn" onclick="cambiarPagina(1)">&gt;</button>
-            <select id="registrosPorPagina" onchange="cambiarTamanoPagina()">
-              <option value="10">10 / página</option>
-              <option value="25">25 / página</option>
-              <option value="50">50 / página</option>
-            </select>
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
 
-  <script>
-    // ==========================================
-    // 1. CONFIGURACIÓN MICROSOFT ENTRA (MSAL)
-    // ==========================================
-    const msalConfig = {
-      auth: {
-        clientId: "6e29c539-1074-4a31-a206-7fa7d7fdb9bf",
-        authority: "https://login.microsoftonline.com/2f5a4c2b-1ce8-4b06-8a5c-7a77d7b80c9c",
-        redirectUri: "https://jarodriguezf2002-collab.github.io/index.html/"
-      },
-      cache: {
-        cacheLocation: "localStorage",
-        storeAuthStateInCookie: false
-      }
-    };
+    <script>
+        const SUPABASE_URL = "https://vzmnlkqdwuaiauznlijz.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_JrzuRZu5E5J7aopUX8_5ow_lupeOMX9";
+        const CLIENT_ID = "6e29c539-1074-4a31-a206-7fa7d7fdb9bf";
+        const TENANT_ID = "2f5a4c2b-1ce8-4b06-8a5c-7a77d7b80c9c";
+        const REDIRECT_URI = "https://jarodriguezf2002-collab.github.io/index.html/";
 
-    let msalInstance = null;
-    if (typeof msal !== "undefined") {
-      msalInstance = new msal.PublicClientApplication(msalConfig);
-    }
-
-    function limpiarEstadoMSAL() {
-      try {
-        Object.keys(localStorage).forEach((k) => {
-          if (k.toLowerCase().includes("msal")) localStorage.removeItem(k);
-        });
-        Object.keys(sessionStorage).forEach((k) => {
-          if (k.toLowerCase().includes("msal")) sessionStorage.removeItem(k);
-        });
-      } catch (e) {
-        console.warn("No se pudo limpiar el almacenamiento de MSAL:", e);
-      }
-    }
-
-    async function inicializarSSO() {
-      if (!msalInstance) {
-        mostrarApp("Usuario Local");
-        return;
-      }
-
-      try {
-        const response = await msalInstance.handleRedirectPromise();
-        if (response && response.account) {
-          msalInstance.setActiveAccount(response.account);
-          mostrarApp(response.account.name || response.account.username);
-          return;
-        }
-
-        const accounts = msalInstance.getAllAccounts();
-        if (accounts.length > 0) {
-          msalInstance.setActiveAccount(accounts[0]);
-          mostrarApp(accounts[0].name || accounts[0].username);
-        } else {
-          document.getElementById("loginScreen").style.display = "flex";
-          document.getElementById("mainApp").style.display = "none";
-        }
-      } catch (error) {
-        console.error("Error MSAL:", error);
-        limpiarEstadoMSAL();
-        document.getElementById("loginScreen").style.display = "flex";
-      }
-    }
-
-    async function iniciarSesion() {
-      if (!msalInstance) {
-        mostrarApp("Usuario Local");
-        return;
-      }
-      try {
-        await msalInstance.loginRedirect({
-          scopes: ["User.Read"]
-        });
-      } catch (error) {
-        console.error("Error al iniciar sesión:", error);
-        if (error && error.errorCode === "interaction_in_progress") {
-          limpiarEstadoMSAL();
-          alert("Se detectó una sesión previa pendiente. Se ha limpiado el estado; haz clic de nuevo en Iniciar sesión.");
-        } else {
-          alert("No se pudo iniciar sesión con Microsoft.");
-        }
-      }
-    }
-
-    async function cerrarSesion() {
-      if (!msalInstance) {
-        location.reload();
-        return;
-      }
-      const account = msalInstance.getActiveAccount();
-      await msalInstance.logoutRedirect({
-        account: account,
-        postLogoutRedirectUri: msalConfig.auth.redirectUri
-      });
-    }
-
-    function mostrarApp(nombreUsuario) {
-      document.getElementById("loginScreen").style.display = "none";
-      document.getElementById("mainApp").style.display = "block";
-      document.getElementById("userNameDisplay").textContent = nombreUsuario;
-      actualizarDatos();
-    }
-
-    // ==========================================
-    // 2. CONFIGURACIÓN SUPABASE Y DATOS MILESIGHT
-    // ==========================================
-    const SUPABASE_URL = "https://vzmnlkqdwuaiauznlijz.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_JrzuRZu5E5J7aopUX8_5ow_lupeOMX9";
-
-    let todosLosRegistros = [];
-    let registrosFiltrados = [];
-    let paginaActual = 1;
-    let tamanoPagina = 10;
-
-    let chartTempNat = null;
-    let chartHumNat = null;
-    let chartTempAce = null;
-    let chartHumAce = null;
-
-    function calcularEstadoLectura(camara, temperatura, humedad) {
-      if (camara === "Cámara Natural") {
-        return (temperatura < 28 || temperatura > 32 || humedad < 70 || humedad > 80) ? "Alerta" : "Normal";
-      }
-      if (camara === "Cámara Acelerada") {
-        return (temperatura < 38 || temperatura > 42 || humedad < 70 || humedad > 80) ? "Alerta" : "Normal";
-      }
-      return "Normal";
-    }
-
-    async function obtenerLecturasMilesight() {
-      const resp = await fetch("./lecturas.json", { cache: "no-store" });
-      if (!resp.ok) {
-        throw new Error(`No se pudo leer lecturas.json (${resp.status})`);
-      }
-
-      const data = await resp.json();
-      const fechaActual = new Date().toISOString();
-
-      return (data.lecturas || []).map((item) => {
-        const temp = Number(item.temperatura);
-        const hum = Number(item.humedad);
-        return {
-          camara: item.camara,
-          temperatura: temp,
-          humedad: hum,
-          estado: calcularEstadoLectura(item.camara, temp, hum),
-          fecha: fechaActual
-        };
-      });
-    }
-
-    async function guardarLecturasEnSupabase(lecturas) {
-      if (!lecturas || lecturas.length === 0) return;
-
-      const resp = await fetch(`${SUPABASE_URL}/rest/v1/mediciones?on_conflict=camara,fecha`, {
-        method: "POST",
-        headers: {
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-          "Content-Type": "application/json",
-          "Prefer": "resolution=merge-duplicates,return=minimal"
-        },
-        body: JSON.stringify(lecturas)
-      });
-
-      if (!resp.ok) {
-        const errText = await resp.text();
-        throw new Error(`Error guardando en mediciones: ${errText}`);
-      }
-    }
-
-    async function actualizarDatos() {
-      const btn = document.getElementById("btnActualizar");
-      btn.disabled = true;
-      btn.textContent = "🔄 Actualizando...";
-
-      try {
-        const nuevasLecturas = await obtenerLecturasMilesight();
-        await guardarLecturasEnSupabase(nuevasLecturas);
-
-        const response = await fetch(
-          `${SUPABASE_URL}/rest/v1/mediciones_dashboard?select=*&order=fecha.desc`,
-          {
-            headers: {
-              "apikey": SUPABASE_ANON_KEY,
-              "Authorization": `Bearer ${SUPABASE_ANON_KEY}`
+        const msalConfig = {
+            auth: {
+                clientId: CLIENT_ID,
+                authority: "https://login.microsoftonline.com/" + TENANT_ID,
+                redirectUri: REDIRECT_URI,
+                postLogoutRedirectUri: REDIRECT_URI,
+                navigateToLoginRequestUrl: true
+            },
+            cache: {
+                cacheLocation: "localStorage",
+                storeAuthStateInCookie: false
             }
-          }
-        );
+        };
 
-        if (!response.ok) {
-          throw new Error(`Error HTTP ${response.status}`);
+        const loginRequest = {
+            scopes: ["openid", "profile", "email"]
+        };
+
+        let msalInstance = null;
+
+        function esperarMsal(timeoutMs = 4000) {
+            return new Promise((resolve, reject) => {
+                if (typeof msal !== "undefined" && msal.PublicClientApplication) {
+                    resolve(msal);
+                    return;
+                }
+                const inicio = Date.now();
+                const intervalo = setInterval(() => {
+                    if (typeof msal !== "undefined" && msal.PublicClientApplication) {
+                        clearInterval(intervalo);
+                        resolve(msal);
+                    } else if (Date.now() - inicio >= timeoutMs) {
+                        clearInterval(intervalo);
+                        reject(new Error("No se pudo cargar la librería de autenticación de Microsoft (MSAL). Verifica la prevención de seguimiento del navegador o tu conexión."));
+                    }
+                }, 50);
+            });
         }
 
-        todosLosRegistros = await response.json();
-        document.getElementById("ultimaActualizacion").textContent =
-          `Última actualización: ${formatearFechaLocal(new Date().toISOString())}`;
-
-        aplicarFiltros();
-      } catch (error) {
-        console.error(error);
-        alert("Error conectando con Supabase");
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "🔄 Actualizar Ahora";
-      }
-    }
-
-    // ==========================================
-    // 3. FORMATEO DE FECHA (HORA LOCAL VENEZUELA)
-    // ==========================================
-    function formatearFechaLocal(fechaStr) {
-      if (!fechaStr) return "--";
-      const normalizada = /[zZ]|[+-]\d{2}:\d{2}$/.test(fechaStr) ? fechaStr : `${fechaStr}Z`;
-      const fechaObj = new Date(normalizada);
-      if (isNaN(fechaObj.getTime())) return fechaStr;
-
-      return fechaObj.toLocaleString("es-VE", {
-        timeZone: "America/Caracas",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true
-      });
-    }
-
-    function obtenerFechaSoloISO(fechaStr) {
-      const normalizada = /[zZ]|[+-]\d{2}:\d{2}$/.test(fechaStr) ? fechaStr : `${fechaStr}Z`;
-      const d = new Date(normalizada);
-      if (isNaN(d.getTime())) return "";
-      return new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/Caracas",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      }).format(d);
-    }
-
-    // ==========================================
-    // 4. FILTROS, TARJETAS, GRÁFICAS Y TABLA
-    // ==========================================
-    function aplicarFiltros() {
-      const camaraSel = document.getElementById("filtroCamara").value;
-      const desdeSel = document.getElementById("fechaDesde").value;
-      const hastaSel = document.getElementById("fechaHasta").value;
-      const vistaSel = document.getElementById("filtroVista").value;
-
-      registrosFiltrados = todosLosRegistros.filter((reg) => {
-        if (camaraSel !== "todas" && reg.camara !== camaraSel) return false;
-        if (vistaSel !== "todos" && reg.estado !== vistaSel) return false;
-
-        const fechaRegISO = obtenerFechaSoloISO(reg.fecha);
-        if (desdeSel && fechaRegISO < desdeSel) return false;
-        if (hastaSel && fechaRegISO > hastaSel) return false;
-
-        return true;
-      });
-
-      paginaActual = 1;
-      actualizarTarjetas();
-      actualizarGraficas();
-      renderizarTabla();
-    }
-
-    function limpiarFiltros() {
-      document.getElementById("filtroCamara").value = "todas";
-      document.getElementById("fechaDesde").value = "";
-      document.getElementById("fechaHasta").value = "";
-      document.getElementById("filtroVista").value = "todos";
-      aplicarFiltros();
-    }
-
-    function actualizarTarjetas() {
-      const natData = registrosFiltrados.filter((r) => r.camara === "Cámara Natural");
-      const aceData = registrosFiltrados.filter((r) => r.camara === "Cámara Acelerada");
-
-      if (natData.length > 0) {
-        const ultimaNat = natData[0];
-        document.getElementById("tempNatural").textContent = `${Number(ultimaNat.temperatura).toFixed(1)} °C`;
-        document.getElementById("humNatural").textContent = `${Number(ultimaNat.humedad).toFixed(1)} %`;
-
-        const pillNat = document.getElementById("estadoNatural");
-        pillNat.textContent = ultimaNat.estado.toUpperCase();
-        pillNat.className = "status-pill" + (ultimaNat.estado === "Alerta" ? " alerta" : "");
-
-        const tempsNat = natData.map((d) => Number(d.temperatura));
-        const humsNat = natData.map((d) => Number(d.humedad));
-        document.getElementById("minTempNat").textContent = `Temp Mín: ${Math.min(...tempsNat).toFixed(1)} °C`;
-        document.getElementById("maxTempNat").textContent = `Temp Máx: ${Math.max(...tempsNat).toFixed(1)} °C`;
-        document.getElementById("minHumNat").textContent = `Hum Mín: ${Math.min(...humsNat).toFixed(1)} %`;
-        document.getElementById("maxHumNat").textContent = `Hum Máx: ${Math.max(...humsNat).toFixed(1)} %`;
-      } else {
-        document.getElementById("tempNatural").textContent = "-- °C";
-        document.getElementById("humNatural").textContent = "-- %";
-        document.getElementById("minTempNat").textContent = "Temp Mín: -- °C";
-        document.getElementById("maxTempNat").textContent = "Temp Máx: -- °C";
-        document.getElementById("minHumNat").textContent = "Hum Mín: -- %";
-        document.getElementById("maxHumNat").textContent = "Hum Máx: -- %";
-      }
-
-      if (aceData.length > 0) {
-        const ultimaAce = aceData[0];
-        document.getElementById("tempAcelerada").textContent = `${Number(ultimaAce.temperatura).toFixed(1)} °C`;
-        document.getElementById("humAcelerada").textContent = `${Number(ultimaAce.humedad).toFixed(1)} %`;
-
-        const pillAce = document.getElementById("estadoAcelerada");
-        pillAce.textContent = ultimaAce.estado.toUpperCase();
-        pillAce.className = "status-pill" + (ultimaAce.estado === "Alerta" ? " alerta" : "");
-
-        const tempsAce = aceData.map((d) => Number(d.temperatura));
-        const humsAce = aceData.map((d) => Number(d.humedad));
-        document.getElementById("minTempAce").textContent = `Temp Mín: ${Math.min(...tempsAce).toFixed(1)} °C`;
-        document.getElementById("maxTempAce").textContent = `Temp Máx: ${Math.max(...tempsAce).toFixed(1)} °C`;
-        document.getElementById("minHumAce").textContent = `Hum Mín: ${Math.min(...humsAce).toFixed(1)} %`;
-        document.getElementById("maxHumAce").textContent = `Hum Máx: ${Math.max(...humsAce).toFixed(1)} %`;
-      } else {
-        document.getElementById("tempAcelerada").textContent = "-- °C";
-        document.getElementById("humAcelerada").textContent = "-- %";
-        document.getElementById("minTempAce").textContent = "Temp Mín: -- °C";
-        document.getElementById("maxTempAce").textContent = "Temp Máx: -- °C";
-        document.getElementById("minHumAce").textContent = "Hum Mín: -- %";
-        document.getElementById("maxHumAce").textContent = "Hum Máx: -- %";
-      }
-    }
-
-    function crearGraficaLinea(canvasId, instanciaAnterior, etiqueta, datos, colorHex, rgbaFondo) {
-      if (instanciaAnterior) instanciaAnterior.destroy();
-      const ctx = document.getElementById(canvasId).getContext("2d");
-      return new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: datos.map((r) => formatearFechaLocal(r.fecha)),
-          datasets: [{
-            label: etiqueta,
-            data: datos.map((r) => Number(r.valor)),
-            borderColor: colorHex,
-            backgroundColor: rgbaFondo,
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false
+        async function obtenerMsalInstance() {
+            if (msalInstance) {
+                return msalInstance;
+            }
+            const msalLib = await esperarMsal();
+            msalInstance = new msalLib.PublicClientApplication(msalConfig);
+            if (typeof msalInstance.initialize === "function") {
+                await msalInstance.initialize();
+            }
+            return msalInstance;
         }
-      });
-    }
 
-    function actualizarGraficas() {
-      const natSerie = registrosFiltrados
-        .filter((r) => r.camara === "Cámara Natural")
-        .reverse()
-        .slice(-20);
+        function limpiarInteraccionAtascada() {
+            try {
+                Object.keys(sessionStorage).forEach((k) => {
+                    if (k.includes("interaction.status") || k.includes("msal.")) {
+                        sessionStorage.removeItem(k);
+                    }
+                });
+                Object.keys(localStorage).forEach((k) => {
+                    if (k.includes("interaction.status")) {
+                        localStorage.removeItem(k);
+                    }
+                });
+            } catch (e) {
+                // Ignorar restricciones de almacenamiento
+            }
+        }
 
-      const aceSerie = registrosFiltrados
-        .filter((r) => r.camara === "Cámara Acelerada")
-        .reverse()
-        .slice(-20);
+        let datosGlobales = {
+            historial: [],
+            alarmas: []
+        };
 
-      chartTempNat = crearGraficaLinea(
-        "chartTempNatural",
-        chartTempNat,
-        "Temperatura Natural (°C)",
-        natSerie.map((r) => ({ fecha: r.fecha, valor: r.temperatura })),
-        "#003DA5",
-        "rgba(0, 61, 165, 0.12)"
-      );
+        let charts = {
+            tempNat: null,
+            tempAce: null,
+            humNat: null,
+            humAce: null
+        };
 
-      chartHumNat = crearGraficaLinea(
-        "chartHumNatural",
-        chartHumNat,
-        "Humedad Natural (%)",
-        natSerie.map((r) => ({ fecha: r.fecha, valor: r.humedad })),
-        "#1D6F42",
-        "rgba(29, 111, 66, 0.12)"
-      );
+        let paginaActual = 1;
+        let registrosPorPagina = 10;
+        let historialFiltradoGlobal = [];
 
-      chartTempAce = crearGraficaLinea(
-        "chartTempAcelerada",
-        chartTempAce,
-        "Temperatura Acelerada (°C)",
-        aceSerie.map((r) => ({ fecha: r.fecha, valor: r.temperatura })),
-        "#C8102E",
-        "rgba(200, 16, 46, 0.12)"
-      );
+        function esEstadoAlerta(estado) {
+            if (!estado) return false;
+            const norm = String(estado).trim().toLowerCase();
+            return norm === "alerta" || norm === "alarma";
+        }
 
-      chartHumAce = crearGraficaLinea(
-        "chartHumAcelerada",
-        chartHumAce,
-        "Humedad Acelerada (%)",
-        aceSerie.map((r) => ({ fecha: r.fecha, valor: r.humedad })),
-        "#666666",
-        "rgba(102, 102, 102, 0.14)"
-      );
-    }
+        function obtenerFechaLocalYYYYMMDD(dateObj) {
+            const d = dateObj || new Date();
+            const año = d.getFullYear();
+            const mes = String(d.getMonth() + 1).padStart(2, "0");
+            const dia = String(d.getDate()).padStart(2, "0");
+            return año + "-" + mes + "-" + dia;
+        }
 
-    function renderizarTabla() {
-      const tbody = document.getElementById("tablaBody");
-      tbody.innerHTML = "";
+        function extraerSoloFechaYYYYMMDD(fechaStr) {
+            if (!fechaStr) return null;
+            const texto = String(fechaStr).trim();
 
-      const total = registrosFiltrados.length;
-      const totalPaginas = Math.max(1, Math.ceil(total / tamanoPagina));
-      if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+            const matchISO = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (matchISO) {
+                return matchISO[1] + "-" + matchISO[2] + "-" + matchISO[3];
+            }
 
-      const inicio = (paginaActual - 1) * tamanoPagina;
-      const paginaItems = registrosFiltrados.slice(inicio, inicio + tamanoPagina);
+            const matchLat = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (matchLat) {
+                const dia = matchLat[1].padStart(2, "0");
+                const mes = matchLat[2].padStart(2, "0");
+                const año = matchLat[3];
+                return año + "-" + mes + "-" + dia;
+            }
 
-      paginaItems.forEach((reg) => {
-        const tr = document.createElement("tr");
-        const claseEstado = reg.estado === "Alerta" ? "estado-alerta" : "estado-normal";
-        tr.innerHTML = `
-          <td>${formatearFechaLocal(reg.fecha)}</td>
-          <td><strong>${reg.camara}</strong></td>
-          <td>${Number(reg.temperatura)} °C</td>
-          <td>${Number(reg.humedad)} %</td>
-          <td class="${claseEstado}">${reg.estado}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+            const d = new Date(texto.replace(" ", "T"));
+            if (!isNaN(d.getTime())) {
+                return obtenerFechaLocalYYYYMMDD(d);
+            }
 
-      document.getElementById("infoPaginacion").textContent =
-        `Mostrando página ${paginaActual} de ${totalPaginas} (Total: ${total} registros)`;
-      document.getElementById("paginaActualBtn").textContent = paginaActual;
-    }
+            return null;
+        }
 
-    function cambiarPagina(delta) {
-      const totalPaginas = Math.max(1, Math.ceil(registrosFiltrados.length / tamanoPagina));
-      const nueva = paginaActual + delta;
-      if (nueva >= 1 && nueva <= totalPaginas) {
-        paginaActual = nueva;
-        renderizarTabla();
-      }
-    }
+        function formatearFechaVisual(fechaStr) {
+            if (!fechaStr) return "--";
+            const texto = String(fechaStr).trim();
+            const d = new Date(texto.replace(" ", "T"));
+            if (!isNaN(d.getTime())) {
+                return d.toLocaleString("es-VE");
+            }
+            return texto;
+        }
 
-    function cambiarTamanoPagina() {
-      tamanoPagina = Number(document.getElementById("registrosPorPagina").value);
-      paginaActual = 1;
-      renderizarTabla();
-    }
+        async function inicializarSSO() {
+            const mensaje = document.getElementById("mensajeLogin");
+            try {
+                const appMsal = await obtenerMsalInstance();
+                const respuesta = await appMsal.handleRedirectPromise();
 
-    // ==========================================
-    // 5. EXPORTACIÓN EXCEL Y PDF
-    // ==========================================
-    function exportarExcel() {
-      const filas = registrosFiltrados.map((r) => ({
-        "Fecha y Hora": formatearFechaLocal(r.fecha),
-        "Cámara": r.camara,
-        "Temperatura (°C)": Number(r.temperatura),
-        "Humedad (%)": Number(r.humedad),
-        "Estado": r.estado
-      }));
+                if (respuesta && respuesta.account) {
+                    appMsal.setActiveAccount(respuesta.account);
+                    mostrarDashboard(respuesta.account);
+                    return;
+                }
 
-      const ws = XLSX.utils.json_to_sheet(filas);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Mediciones");
-      XLSX.writeFile(wb, "Monitoreo_Estabilidad_LETI.xlsx");
-    }
+                const cuentas = appMsal.getAllAccounts();
 
-    function exportarPDF() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
+                if (cuentas.length > 0) {
+                    appMsal.setActiveAccount(cuentas[0]);
+                    mostrarDashboard(cuentas[0]);
+                } else {
+                    mostrarPantallaLogin();
+                }
+            } catch (error) {
+                console.error("Error inicializando Microsoft SSO:", error);
+                mostrarPantallaLogin();
+                if (mensaje) {
+                    mensaje.innerText = obtenerMensajeErrorMicrosoft(error);
+                }
+            }
+        }
 
-      doc.setFontSize(14);
-      doc.setTextColor(0, 61, 165);
-      doc.text("Monitoreo de Estabilidad - Grupo LETI", 14, 16);
+        async function iniciarSesionMicrosoft() {
+            const mensaje = document.getElementById("mensajeLogin");
+            mensaje.innerText = "Redirigiendo a Microsoft...";
 
-      const cuerpo = registrosFiltrados.map((r) => [
-        formatearFechaLocal(r.fecha),
-        r.camara,
-        `${Number(r.temperatura)} °C`,
-        `${Number(r.humedad)} %`,
-        r.estado
-      ]);
+            try {
+                const appMsal = await obtenerMsalInstance();
+                await appMsal.loginRedirect(loginRequest);
+            } catch (error) {
+                if (error && error.errorCode === "interaction_in_progress") {
+                    limpiarInteraccionAtascada();
+                    try {
+                        const appMsal = await obtenerMsalInstance();
+                        await appMsal.loginRedirect(loginRequest);
+                        return;
+                    } catch (retryError) {
+                        error = retryError;
+                    }
+                }
+                console.error("Error de inicio de sesión:", error);
+                mensaje.innerText = obtenerMensajeErrorMicrosoft(error);
+            }
+        }
 
-      doc.autoTable({
-        startY: 22,
-        head: [["Fecha y Hora", "Cámara", "Temperatura", "Humedad", "Estado"]],
-        body: cuerpo,
-        headStyles: { fillColor: [0, 61, 165] }
-      });
+        function mostrarDashboard(cuenta) {
+            document.getElementById("loginScreen").style.display = "none";
+            document.getElementById("mainApp").style.display = "block";
 
-      doc.save("Monitoreo_Estabilidad_LETI.pdf");
-    }
+            const nombre = cuenta.name || cuenta.username || "Usuario";
+            document.getElementById("usuarioMicrosoft").innerText = nombre;
+            document.getElementById("inputFechaInicio").value = "";
+            document.getElementById("inputFechaFin").value = "";
 
-    // ==========================================
-    // 6. MODO OSCURO E INICIO
-    // ==========================================
-    function toggleDarkMode() {
-      document.body.classList.toggle("dark-mode");
-      const esOscuro = document.body.classList.contains("dark-mode");
-      localStorage.setItem("temaOscuro", esOscuro ? "1" : "0");
-    }
+            actualizarDatos();
+        }
 
-    window.addEventListener("DOMContentLoaded", () => {
-      if (localStorage.getItem("temaOscuro") === "1") {
-        document.body.classList.add("dark-mode");
-      }
-      inicializarSSO();
-    });
-  </script>
+        function mostrarPantallaLogin() {
+            document.getElementById("mainApp").style.display = "none";
+            document.getElementById("loginScreen").style.display = "flex";
+            document.getElementById("mensajeLogin").innerText = "";
+        }
+
+        async function cerrarSesionMicrosoft() {
+            try {
+                const appMsal = await obtenerMsalInstance();
+                const cuenta = appMsal.getActiveAccount() || appMsal.getAllAccounts()[0];
+
+                if (!cuenta) {
+                    mostrarPantallaLogin();
+                    return;
+                }
+
+                await appMsal.logoutRedirect({
+                    account: cuenta,
+                    postLogoutRedirectUri: REDIRECT_URI
+                });
+            } catch (error) {
+                console.error("Error al cerrar sesión:", error);
+                mostrarPantallaLogin();
+            }
+        }
+
+        function obtenerMensajeErrorMicrosoft(error) {
+            console.error("Detalle de autenticación:", error);
+
+            if (error && error.message && error.message.indexOf("librería de autenticación") !== -1) {
+                return error.message;
+            }
+
+            const codigo = error && error.errorCode ? error.errorCode : "";
+
+            if (codigo === "user_cancelled") {
+                return "El inicio de sesión fue cancelado.";
+            }
+            if (codigo === "interaction_in_progress") {
+                return "Ya existe un inicio de sesión en curso. Recarga la página.";
+            }
+            if (codigo === "redirect_uri_mismatch") {
+                return "La dirección de la página no coincide con la URI registrada en Microsoft Entra.";
+            }
+
+            return "No se pudo iniciar sesión con Microsoft. Revisa la consola para ver el detalle.";
+        }
+
+        function limpiarFiltros() {
+            document.getElementById("filtroCamara").value = "todas";
+            document.getElementById("inputFechaInicio").value = "";
+            document.getElementById("inputFechaFin").value = "";
+            document.getElementById("filtroVistaTabla").value = "todos";
+            aplicarFiltrosYActualizar();
+        }
+
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            if (html.getAttribute("data-theme") === "dark") {
+                html.removeAttribute("data-theme");
+            } else {
+                html.setAttribute("data-theme", "dark");
+            }
+        }
+
+        function calcularEstadoLectura(temp, hum) {
+            if (Number(temp) > 30 || Number(hum) > 80) return "Alerta";
+            return "Normal";
+        }
+
+        async function guardarLecturasEnSupabase(lecturas, nombreCamara = "Cámara Natural") {
+            if (!Array.isArray(lecturas) || lecturas.length === 0) return;
+
+            const filas = lecturas
+                .map(function (item) {
+                    const temp = parseFloat(item.temperatura ?? item.Temperatura);
+                    const hum = parseFloat(item.humedad ?? item.Humedad);
+                    const fechaRaw = item.fecha ?? item.tiempo ?? item.Tiempo;
+                    if (isNaN(temp) || isNaN(hum) || !fechaRaw) return null;
+
+                    const fechaIso = new Date(String(fechaRaw).trim().replace(" ", "T")).toISOString();
+                    return {
+                        camara: item.camara || nombreCamara,
+                        temperatura: temp,
+                        humedad: hum,
+                        estado: item.estado || calcularEstadoLectura(temp, hum),
+                        fecha: fechaIso
+                    };
+                })
+                .filter(Boolean);
+
+            if (filas.length === 0) return;
+
+            const resp = await fetch(
+                SUPABASE_URL + "/rest/v1/mediciones?on_conflict=camara,fecha",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        apikey: SUPABASE_KEY,
+                        Authorization: "Bearer " + SUPABASE_KEY,
+                        Prefer: "resolution=ignore-duplicates,return=minimal"
+                    },
+                    body: JSON.stringify(filas)
+                }
+            );
+
+            if (!resp.ok) {
+                const detalle = await resp.text();
+                throw new Error("Error guardando en mediciones: " + detalle);
+            }
+        }
+
+        function actualizarTarjetasLecturaActual(registros) {
+            const ordenados = [...registros].sort(function(a, b) {
+                const ta = new Date(String(a.fecha || "").replace(" ", "T")).getTime() || 0;
+                const tb = new Date(String(b.fecha || "").replace(" ", "T")).getTime() || 0;
+                return tb - ta;
+            });
+
+            const natural = ordenados.find(function(x) { return x.camara === "Cámara Natural"; });
+            const acelerada = ordenados.find(function(x) { return x.camara === "Cámara Acelerada"; });
+
+            if (natural) {
+                document.getElementById("tempNatural").innerText = natural.temperatura + " °C";
+                document.getElementById("humNatural").innerText = natural.humedad + " %";
+                actualizarBadge("statusNatural", natural.estado);
+            } else {
+                document.getElementById("tempNatural").innerText = "-- °C";
+                document.getElementById("humNatural").innerText = "-- %";
+                actualizarBadge("statusNatural", "Normal");
+            }
+
+            if (acelerada) {
+                document.getElementById("tempAcelerada").innerText = acelerada.temperatura + " °C";
+                document.getElementById("humAcelerada").innerText = acelerada.humedad + " %";
+                actualizarBadge("statusAcelerada", acelerada.estado);
+            } else {
+                document.getElementById("tempAcelerada").innerText = "-- °C";
+                document.getElementById("humAcelerada").innerText = "-- %";
+                actualizarBadge("statusAcelerada", "Normal");
+            }
+        }
+
+        async function actualizarDatos() {
+            const btn = document.getElementById("btnActualizar");
+            const icono = document.getElementById("iconoCarga");
+            const texto = document.getElementById("textoBtn");
+            btn.disabled = true;
+            icono.style.animation = "girar 1s linear infinite";
+            texto.innerText = " Actualizando...";
+            try {
+                const respuesta = await fetch(
+                    SUPABASE_URL + "/rest/v1/mediciones_dashboard?select=*&order=fecha.desc",
+                    {
+                        headers: {
+                            apikey: SUPABASE_KEY,
+                            Authorization: "Bearer " + SUPABASE_KEY
+                        }
+                    }
+                );
+                const registros = await respuesta.json();
+                const historial = registros.map(function(r) {
+                    return {
+                        fecha: r.fecha,
+                        camara: r.camara,
+                        temperatura: r.temperatura,
+                        humedad: r.humedad,
+                        estado: r.estado
+                    };
+                });
+
+                datosGlobales = {
+                    historial: historial,
+                    alarmas: historial.filter(function(x) { return esEstadoAlerta(x.estado); })
+                };
+
+                // Las tarjetas superiores siempre muestran la lectura más reciente (actual) de cada cámara,
+                // independientemente de si la vista está filtrada por alarmas o fechas.
+                actualizarTarjetasLecturaActual(datosGlobales.historial);
+
+                aplicarFiltrosYActualizar();
+                document.getElementById("ultimaActualizacion").innerText =
+                    "Última actualización: " + new Date().toLocaleString("es-VE");
+            } catch (error) {
+                console.error(error);
+                alert("Error conectando con Supabase");
+            } finally {
+                btn.disabled = false;
+                icono.style.animation = "none";
+                texto.innerText = " Actualizar Ahora";
+            }
+        }
+
+        function actualizarBadge(elementId, estado) {
+            const badge = document.getElementById(elementId);
+            const textoEstado = estado || "Normal";
+            badge.innerText = textoEstado.toUpperCase();
+            if (esEstadoAlerta(textoEstado)) {
+                badge.className = "status-badge status-alerta";
+            } else {
+                badge.className = "status-badge status-normal";
+            }
+        }
+
+        function aplicarFiltrosYActualizar() {
+            const camaraFiltro = document.getElementById("filtroCamara").value;
+            const vistaTabla = document.getElementById("filtroVistaTabla").value;
+
+            const fechaInicioVal = document.getElementById("inputFechaInicio").value;
+            const fechaFinVal = document.getElementById("inputFechaFin").value;
+
+            // Mantener siempre visibles la Temperatura Actual, Humedad Actual y estado actual de cada cámara
+            actualizarTarjetasLecturaActual(datosGlobales.historial);
+
+            const tituloSeccion = document.getElementById("tituloSeccionTabla");
+            if (vistaTabla === "alarmas") {
+                tituloSeccion.innerText = "Historial Exclusivo de Alarmas (Filtrado)";
+            } else {
+                tituloSeccion.innerText = "Historial de Todos los Eventos (Filtrado)";
+            }
+
+            document.getElementById("cardNatural").style.display = (camaraFiltro === "todas" || camaraFiltro === "Cámara Natural") ? "block" : "none";
+            document.getElementById("cardAcelerada").style.display = (camaraFiltro === "todas" || camaraFiltro === "Cámara Acelerada") ? "block" : "none";
+            document.getElementById("wrapTempNat").style.display = (camaraFiltro === "todas" || camaraFiltro === "Cámara Natural") ? "block" : "none";
+            document.getElementById("wrapTempAce").style.display = (camaraFiltro === "todas" || camaraFiltro === "Cámara Acelerada") ? "block" : "none";
+            document.getElementById("wrapHumNat").style.display = (camaraFiltro === "todas" || camaraFiltro === "Cámara Natural") ? "block" : "none";
+            document.getElementById("wrapHumAce").style.display = (camaraFiltro === "todas" || camaraFiltro === "Cámara Acelerada") ? "block" : "none";
+
+            const historialFiltrado = datosGlobales.historial.filter(function(item) {
+                if (camaraFiltro !== "todas" && item.camara !== camaraFiltro) return false;
+                if (vistaTabla === "alarmas" && !esEstadoAlerta(item.estado)) return false;
+
+                const fechaItem = extraerSoloFechaYYYYMMDD(item.fecha);
+
+                if (fechaInicioVal && (!fechaItem || fechaItem < fechaInicioVal)) return false;
+                if (fechaFinVal && (!fechaItem || fechaItem > fechaFinVal)) return false;
+
+                return true;
+            });
+
+            procesarTablasYMinMax(historialFiltrado);
+
+            // Si la vista está en "alarmas", las gráficas también muestran solo las alarmas filtradas (igual que el reporte)
+            actualizarGraficasSeparadas(historialFiltrado);
+        }
+
+        function procesarTablasYMinMax(historial) {
+            historialFiltradoGlobal = historial;
+            paginaActual = 1;
+
+            renderizarTablaPaginada();
+
+            let tNatMin = Infinity, tNatMax = -Infinity, hNatMin = Infinity, hNatMax = -Infinity;
+            let tAceMin = Infinity, tAceMax = -Infinity, hAceMin = Infinity, hAceMax = -Infinity;
+
+            historial.forEach(function(item) {
+                const temp = parseFloat(item.temperatura);
+                const hum = parseFloat(item.humedad);
+
+                if (!isNaN(temp) && !isNaN(hum)) {
+                    if (item.camara === "Cámara Natural") {
+                        if (temp < tNatMin) tNatMin = temp;
+                        if (temp > tNatMax) tNatMax = temp;
+                        if (hum < hNatMin) hNatMin = hum;
+                        if (hum > hNatMax) hNatMax = hum;
+                    } else if (item.camara === "Cámara Acelerada") {
+                        if (temp < tAceMin) tAceMin = temp;
+                        if (temp > tAceMax) tAceMax = temp;
+                        if (hum < hAceMin) hAceMin = hum;
+                        if (hum > hAceMax) hAceMax = hum;
+                    }
+                }
+            });
+
+            document.getElementById("minTempNatural").innerText = tNatMin !== Infinity ? tNatMin : "--";
+            document.getElementById("maxTempNatural").innerText = tNatMax !== -Infinity ? tNatMax : "--";
+            document.getElementById("minHumNatural").innerText = hNatMin !== Infinity ? hNatMin : "--";
+            document.getElementById("maxHumNatural").innerText = hNatMax !== -Infinity ? hNatMax : "--";
+
+            document.getElementById("minTempAcelerada").innerText = tAceMin !== Infinity ? tAceMin : "--";
+            document.getElementById("maxTempAcelerada").innerText = tAceMax !== -Infinity ? tAceMax : "--";
+            document.getElementById("minHumAcelerada").innerText = hAceMin !== Infinity ? hAceMin : "--";
+            document.getElementById("maxHumAcelerada").innerText = hAceMax !== -Infinity ? hAceMax : "--";
+        }
+
+        function renderizarTablaPaginada() {
+            const tbodyEventos = document.getElementById("cuerpoTablaHistorial");
+            tbodyEventos.innerHTML = "";
+
+            const totalRegistros = historialFiltradoGlobal.length;
+            const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina) || 1;
+
+            if (paginaActual > totalPaginas) paginaActual = totalPaginas;
+            if (paginaActual < 1) paginaActual = 1;
+
+            const inicio = (paginaActual - 1) * registrosPorPagina;
+            const fin = inicio + registrosPorPagina;
+            const registrosPagina = historialFiltradoGlobal.slice(inicio, fin);
+
+            if (registrosPagina.length > 0) {
+                registrosPagina.forEach(function(item) {
+                    const fila = document.createElement("tr");
+                    const colorEstado = esEstadoAlerta(item.estado) ? "#C8102E" : "#28a745";
+                    fila.innerHTML =
+                        "<td>" + formatearFechaVisual(item.fecha) + "</td>" +
+                        "<td><b>" + item.camara + "</b></td>" +
+                        "<td>" + item.temperatura + " °C</td>" +
+                        "<td>" + item.humedad + " %</td>" +
+                        "<td><span style=\"color: " + colorEstado + "; font-weight: bold;\">" + item.estado + "</span></td>";
+                    tbodyEventos.appendChild(fila);
+                });
+            } else {
+                tbodyEventos.innerHTML = "<tr><td colspan=\"5\" style=\"text-align:center; color:var(--secondary);\">No hay registros en este período con el filtro seleccionado.</td></tr>";
+            }
+
+            renderizarControlesPaginacion(totalPaginas);
+        }
+
+        function renderizarControlesPaginacion(totalPaginas) {
+            const contenedorPaginacion = document.getElementById("paginacionEventos");
+            
+            let htmlBotones = "<div style=\"font-size: 13px; color: var(--secondary);\">Mostrando página " + paginaActual + " de " + totalPaginas + " (Total: " + historialFiltradoGlobal.length + " registros)</div>";
+            htmlBotones += "<div style=\"display: flex; gap: 5px; align-items: center;\">";
+            htmlBotones += "<button type=\"button\" class=\"btn\" style=\"padding: 5px 10px; font-size: 12px; background: " + (paginaActual === 1 ? "#ccc" : "var(--primary)") + ";\" onclick=\"cambiarPagina(" + (paginaActual - 1) + ")\" " + (paginaActual === 1 ? "disabled" : "") + ">&lt;</button>";
+
+            for (let i = 1; i <= totalPaginas; i++) {
+                if (i === 1 || i === totalPaginas || (i >= paginaActual - 1 && i <= paginaActual + 1)) {
+                    const bg = i === paginaActual ? "var(--primary)" : "var(--card-bg)";
+                    const fg = i === paginaActual ? "#fff" : "var(--text-main)";
+                    htmlBotones += "<button type=\"button\" class=\"btn\" style=\"padding: 5px 10px; font-size: 12px; background: " + bg + "; color: " + fg + "; border: 1px solid var(--border-color);\" onclick=\"cambiarPagina(" + i + ")\">" + i + "</button>";
+                } else if (i === paginaActual - 2 || i === paginaActual + 2) {
+                    htmlBotones += "<span style=\"padding: 0 5px; color: var(--secondary);\">...</span>";
+                }
+            }
+
+            htmlBotones += "<button type=\"button\" class=\"btn\" style=\"padding: 5px 10px; font-size: 12px; background: " + (paginaActual === totalPaginas || totalPaginas === 0 ? "#ccc" : "var(--primary)") + ";\" onclick=\"cambiarPagina(" + (paginaActual + 1) + ")\" " + (paginaActual === totalPaginas || totalPaginas === 0 ? "disabled" : "") + ">&gt;</button>";
+            
+            htmlBotones +=
+                "<select id=\"selectRegistrosPorPagina\" onchange=\"cambiarRegistrosPorPagina(this.value)\" style=\"margin-left: 15px; padding: 5px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-main); font-size: 12px;\">" +
+                    "<option value=\"10\" " + (registrosPorPagina === 10 ? "selected" : "") + ">10 / página</option>" +
+                    "<option value=\"25\" " + (registrosPorPagina === 25 ? "selected" : "") + ">25 / página</option>" +
+                    "<option value=\"50\" " + (registrosPorPagina === 50 ? "selected" : "") + ">50 / página</option>" +
+                    "<option value=\"100\" " + (registrosPorPagina === 100 ? "selected" : "") + ">100 / página</option>" +
+                "</select>";
+
+            htmlBotones += "</div>";
+            contenedorPaginacion.innerHTML = htmlBotones;
+        }
+
+        function cambiarPagina(nuevaPagina) {
+            paginaActual = nuevaPagina;
+            renderizarTablaPaginada();
+        }
+
+        function cambiarRegistrosPorPagina(valor) {
+            registrosPorPagina = parseInt(valor, 10);
+            paginaActual = 1;
+            renderizarTablaPaginada();
+        }
+
+        function actualizarGraficasSeparadas(historial) {
+            const natItems = historial.filter(function(i) { return i.camara === "Cámara Natural"; }).slice().reverse();
+            const aceItems = historial.filter(function(i) { return i.camara === "Cámara Acelerada"; }).slice().reverse();
+
+            const labelsNat = natItems.map(function(i) { return formatearFechaVisual(i.fecha); });
+            const labelsAce = aceItems.map(function(i) { return formatearFechaVisual(i.fecha); });
+
+            charts.tempNat = crearOActualizarGrafica(charts.tempNat, "graficoTempNatural", labelsNat, natItems.map(function(i) { return i.temperatura; }), "Temp. Cámara Natural (°C)", "#003DA5", "rgba(0,61,165,0.1)");
+            charts.tempAce = crearOActualizarGrafica(charts.tempAce, "graficoTempAcelerada", labelsAce, aceItems.map(function(i) { return i.temperatura; }), "Temp. Cámara Acelerada (°C)", "#C8102E", "rgba(200,16,46,0.1)");
+            charts.humNat = crearOActualizarGrafica(charts.humNat, "graficoHumNatural", labelsNat, natItems.map(function(i) { return i.humedad; }), "Hum. Cámara Natural (%)", "#003DA5", "rgba(0,61,165,0.1)");
+            charts.humAce = crearOActualizarGrafica(charts.humAce, "graficoHumAcelerada", labelsAce, aceItems.map(function(i) { return i.humedad; }), "Hum. Cámara Acelerada (%)", "#C8102E", "rgba(200,16,46,0.1)");
+        }
+
+        function crearOActualizarGrafica(chartInstance, elementId, labels, data, labelName, borderColor, bgColor) {
+            const ctx = document.getElementById(elementId).getContext("2d");
+            if (chartInstance) chartInstance.destroy();
+            return new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [{ label: labelName, data: data, borderColor: borderColor, backgroundColor: bgColor, tension: 0.3, fill: true }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false
+                }
+            });
+        }
+
+        function obtenerRegistrosParaReporte() {
+            const camaraFiltro = document.getElementById("filtroCamara").value;
+            const vistaTabla = document.getElementById("filtroVistaTabla").value;
+            const fechaInicioVal = document.getElementById("inputFechaInicio").value;
+            const fechaFinVal = document.getElementById("inputFechaFin").value;
+
+            return datosGlobales.historial.filter(function(item) {
+                if (camaraFiltro !== "todas" && item.camara !== camaraFiltro) return false;
+                if (vistaTabla === "alarmas" && !esEstadoAlerta(item.estado)) return false;
+
+                const fechaItem = extraerSoloFechaYYYYMMDD(item.fecha);
+                if (fechaInicioVal && (!fechaItem || fechaItem < fechaInicioVal)) return false;
+                if (fechaFinVal && (!fechaItem || fechaItem > fechaFinVal)) return false;
+
+                return true;
+            });
+        }
+
+        function generarImagenGraficaDesdeDatos(items, campoValor, labelName, borderColor, bgColor) {
+            const ordenados = items.slice().reverse();
+            const labels = ordenados.map(function(i) { return formatearFechaVisual(i.fecha); });
+            const data = ordenados.map(function(i) { return Number(i[campoValor]); });
+
+            const canvasTemp = document.createElement("canvas");
+            canvasTemp.width = 900;
+            canvasTemp.height = 400;
+            const ctx = canvasTemp.getContext("2d");
+
+            const graficaTemp = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: labelName,
+                        data: data,
+                        borderColor: borderColor,
+                        backgroundColor: bgColor,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: false,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { labels: { color: "#222222" } }
+                    },
+                    scales: {
+                        x: { ticks: { color: "#333333" } },
+                        y: { ticks: { color: "#333333" } }
+                    }
+                }
+            });
+
+            const imgData = graficaTemp.toBase64Image("image/png", 1);
+            graficaTemp.destroy();
+            return imgData;
+        }
+
+        function exportarExcel(filename) {
+            const registrosReporte = obtenerRegistrosParaReporte();
+            const vistaTabla = document.getElementById("filtroVistaTabla").value;
+            const nombreHoja = vistaTabla === "alarmas" ? "Alarmas Filtradas" : "Eventos Filtrados";
+
+            const datosHoja = registrosReporte.map(function(item) {
+                return {
+                    "Fecha y Hora": formatearFechaVisual(item.fecha),
+                    "Cámara": item.camara,
+                    "Temperatura (°C)": Number(item.temperatura),
+                    "Humedad (%)": Number(item.humedad),
+                    "Estado": item.estado
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(
+                datosHoja.length > 0
+                    ? datosHoja
+                    : [{ "Fecha y Hora": "Sin registros para el filtro seleccionado", "Cámara": "", "Temperatura (°C)": "", "Humedad (%)": "", "Estado": "" }]
+            );
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, nombreHoja);
+
+            const nombreArchivo = vistaTabla === "alarmas"
+                ? filename.replace(".xlsx", "_Alarmas.xlsx")
+                : filename;
+            XLSX.writeFile(wb, nombreArchivo);
+        }
+
+        async function exportarPDF(tableId, title, filename) {
+            const jsPDFConstructor = window.jspdf.jsPDF;
+            const doc = new jsPDFConstructor();
+            
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(14);
+            doc.setTextColor(200, 16, 46); 
+            doc.text("Laboratorios Leti, S.A.V.", 14, 20);
+            
+            const vistaTabla = document.getElementById("filtroVistaTabla").value;
+            const camaraFiltro = document.getElementById("filtroCamara").value;
+            const registrosReporte = obtenerRegistrosParaReporte();
+            const subtitulo = vistaTabla === "alarmas" ? "INFORME DE ALARMAS (FILTRADO)" : "INFORME DE EVENTOS (FILTRADO)";
+
+            doc.autoTable({
+                startY: 26,
+                head: [
+                    [{ content: "INFORME TÉCNICO", styles: { halign: "center", fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold", fontSize: 11 } }],
+                    [{ content: subtitulo, styles: { halign: "center", fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold", fontSize: 10 } }]
+                ],
+                body: [],
+                theme: "grid",
+                headStyles: { lineWidth: 0.3, lineColor: [102, 102, 102] },
+                tableLineColor: [102, 102, 102],
+                tableLineWidth: 0.3
+            });
+
+            let cuentaMicrosoft = null;
+            try {
+                const appMsal = await obtenerMsalInstance();
+                cuentaMicrosoft = appMsal.getActiveAccount() || appMsal.getAllAccounts()[0] || null;
+            } catch (e) {
+                cuentaMicrosoft = null;
+            }
+
+            const usuarioActual = cuentaMicrosoft
+                ? (cuentaMicrosoft.name || cuentaMicrosoft.username)
+                : "Usuario Microsoft";
+            const fechaHoraActual = new Date().toLocaleString("es-VE");
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(102, 102, 102);
+            
+            let finalY = doc.lastAutoTable.finalY + 8;
+            doc.text("Usuario: " + usuarioActual, 14, finalY);
+            doc.text("Fecha y Hora: " + fechaHoraActual, 120, finalY);
+
+            const cuerpoTablaPDF = registrosReporte.length > 0
+                ? registrosReporte.map(function(item) {
+                    return [
+                        formatearFechaVisual(item.fecha),
+                        item.camara,
+                        item.temperatura + " °C",
+                        item.humedad + " %",
+                        item.estado
+                    ];
+                })
+                : [["Sin registros para el filtro seleccionado", "-", "-", "-", "-"]];
+
+            doc.autoTable({
+                startY: finalY + 4,
+                head: [["Fecha y Hora", "Cámara", "Temperatura (en °C)", "Humedad (en %)", "Estado"]],
+                body: cuerpoTablaPDF,
+                theme: "grid",
+                headStyles: { 
+                    fillColor: [0, 61, 165], 
+                    textColor: [255, 255, 255],
+                    fontStyle: "bold",
+                    halign: "center"
+                },
+                bodyStyles: { 
+                    textColor: [50, 50, 50],
+                    halign: "center"
+                },
+                alternateRowStyles: {
+                    fillColor: [237, 237, 237]
+                },
+                styles: { fontSize: 9, cellPadding: 4 },
+                didParseCell: function(data) {
+                    if (data.column.index === 4 && data.cell.raw && esEstadoAlerta(data.cell.raw)) {
+                        data.cell.styles.textColor = [200, 16, 46];
+                        data.cell.styles.fontStyle = "bold";
+                    }
+                }
+            });
+
+            let currentY = doc.lastAutoTable.finalY + 10;
+
+            function agregarGraficaAPDF(itemsCamara, campoValor, labelDataset, tituloGrafica, borderColor, bgColor) {
+                if (!itemsCamara || itemsCamara.length === 0) return;
+
+                const imgData = generarImagenGraficaDesdeDatos(itemsCamara, campoValor, labelDataset, borderColor, bgColor);
+                if (currentY > 205) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(10);
+                doc.setTextColor(0, 61, 165);
+                doc.text(tituloGrafica, 14, currentY);
+                currentY += 4;
+                doc.addImage(imgData, "PNG", 14, currentY, 180, 75);
+                currentY += 83;
+            }
+
+            const natReporte = registrosReporte.filter(function(i) { return i.camara === "Cámara Natural"; });
+            const aceReporte = registrosReporte.filter(function(i) { return i.camara === "Cámara Acelerada"; });
+
+            if (camaraFiltro === "todas" || camaraFiltro === "Cámara Natural") {
+                agregarGraficaAPDF(natReporte, "temperatura", "Temp. Cámara Natural (°C)", "Gráfica: Temperatura - Cámara Natural", "#003DA5", "rgba(0,61,165,0.1)");
+                agregarGraficaAPDF(natReporte, "humedad", "Hum. Cámara Natural (%)", "Gráfica: Humedad - Cámara Natural", "#003DA5", "rgba(0,61,165,0.1)");
+            }
+            if (camaraFiltro === "todas" || camaraFiltro === "Cámara Acelerada") {
+                agregarGraficaAPDF(aceReporte, "temperatura", "Temp. Cámara Acelerada (°C)", "Gráfica: Temperatura - Cámara Acelerada", "#C8102E", "rgba(200,16,46,0.1)");
+                agregarGraficaAPDF(aceReporte, "humedad", "Hum. Cámara Acelerada (%)", "Gráfica: Humedad - Cámara Acelerada", "#C8102E", "rgba(200,16,46,0.1)");
+            }
+
+            const nombreArchivoPDF = vistaTabla === "alarmas"
+                ? filename.replace(".pdf", "_Alarmas.pdf")
+                : filename;
+            doc.save(nombreArchivoPDF);
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            inicializarSSO();
+        });
+    </script>
 </body>
 </html>
