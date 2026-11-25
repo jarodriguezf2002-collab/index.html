@@ -589,6 +589,30 @@
             humAce: null
         };
 
+        // Bloqueo del botón "Atrás" del navegador dentro de la aplicación
+        let bloqueoAtrasActivo = false;
+
+        function activarBloqueoAtrasNavegador() {
+            if (bloqueoAtrasActivo) return;
+            bloqueoAtrasActivo = true;
+            try {
+                history.pushState({ appBloqueada: true }, "", window.location.href);
+            } catch (e) {
+                // Ignorar si el navegador restringe pushState
+            }
+        }
+
+        window.addEventListener("popstate", function () {
+            const mainAppVisible = document.getElementById("mainApp") && document.getElementById("mainApp").style.display !== "none";
+            if (mainAppVisible) {
+                try {
+                    history.pushState({ appBloqueada: true }, "", window.location.href);
+                } catch (e) {
+                    // Ignorar si el navegador restringe pushState
+                }
+            }
+        });
+
         let paginaActual = 1;
         let registrosPorPagina = 10;
         let historialFiltradoGlobal = [];
@@ -697,6 +721,7 @@
         function mostrarDashboard(cuenta) {
             document.getElementById("loginScreen").style.display = "none";
             document.getElementById("mainApp").style.display = "block";
+            activarBloqueoAtrasNavegador();
 
             const nombre = cuenta.name || cuenta.username || "Usuario";
             document.getElementById("usuarioMicrosoft").innerText = nombre;
@@ -707,6 +732,7 @@
         }
 
         function mostrarPantallaLogin() {
+            bloqueoAtrasActivo = false;
             document.getElementById("mainApp").style.display = "none";
             document.getElementById("loginScreen").style.display = "flex";
             document.getElementById("mensajeLogin").innerText = "";
